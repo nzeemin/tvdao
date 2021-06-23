@@ -1,0 +1,8 @@
+*.ppu
+*.o
+*.exe
+*.gam
+*.WRK
+fp.cfg
+fp.dsk
+fp.ini

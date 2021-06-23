@@ -1,0 +1,84 @@
+﻿
+https://github.com/graemeg/freepascal/tree/master/packages/fv/src
+
+https://github.com/sechshelme/Lazarus-FreeVision
+https://github.com/jnse/turbogopher
+
+
+== TODO ==
+
+ - Выделить разбор командной строки
+ - Учёт опций командной строки /m /i - см. LoadFile в DAOGOOD.pas
+
+ - Не может открыть исходный файл, если он read-only
+
+ ! Подложил .WRK-файл от оригинала, выдаёт ошибку Bad header in WorkFile!
+
+ * Disasm widget - строки дизасма с метками - см. ShowList в DAOGOOD.pas
+   ! На старте числа в дизасме - не те, видимо адрес не тот
+   - Движение курсором вниз/вверх, на страницу вниз/вверх
+   - Актуальное состояние скроллбара, команды со скроллбара
+   ? Подсветка точек перехода - нажал и перешёл
+
+ * Info widget
+   # Показывать "InitAddress: XXXX" - то что в оригинале в красной строке справа
+   - Показ "Memory position: XXXX" и процентов, количества меток - см. ShowStatus
+   * Показывать GreedCalls - см. ShowPoints
+   * Показывать Bookmarks - см. ShowPoints
+
+ - Labels widget
+
+ * Memory widget
+   - Адрес не тот что в оригинале - проверить DumpPos
+   - Показ символов справа
+   - Пока курсора
+   - Движение курсора
+   - Режим показа только символов
+   - Актуальное состояние скроллбара, команды со скроллбара
+
+ * Application: меню Options
+   - Переключение типа процессора
+   - Toggle undocument commands
+
+ - Диалог EnterAddr - ввод адреса
+   поле адреса, кнопки OK/Cancel
+   - Ограничение на ввод только Hex
+
+ - Диалог EnterRange - используется в 4-х местах
+   поля From, To, Length, кнопки OK/Cancel
+   - Ограничение на ввод только Hex
+   - Валидаци на From <= To
+
+ - Диалог для Find bytes
+
+ - Load .WRK file
+ - Save .WRK file
+
+ - Save ASM Files
+   - Диалог прогресса как при компиляции в FPC
+
+ - Welcome message вместо сообщения об ошибке когда не задан входной файл
+   - Класс диалога
+   - Welcome message
+   - Кнопка выбора файла .gam
+   - Выбор файла через стандартный диалог
+
+ ? Widget со списком меток
+ ? Widget со списком bookmarks 0..9
+
+ - Help dialog - переделать на read-only text edit, с текстом из ресурса
+
+
+== DONE ==
+
+ # Window: разделитель между верхними и нижними гаджетами
+ # Window: убрать опцию закрытия окна - пока запретил всё
+ # Window: рисовать вертикальный разделитель
+ # Info widget: Показ "ASM Format: XXX"
+ # Window: имя .gam-файла и .WRK-файла в заголовке окна
+ # Загрузка файла .gam - см. LoadFile в DAOGOOD.pas
+ # TypeError - переделка в отправку сообщения в Info Widget
+ # ProHalt - перенести обработку в модуль tvdao
+ # Disasm widget: Показ строк дизасма с метками
+ # Memory widget: Показ адресов и hex-байтов - как было в оригинале - см. ShowDump
+
