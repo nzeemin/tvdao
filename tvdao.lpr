@@ -29,6 +29,7 @@ BEGIN
       ShowMessage(ErrorMessage, ErrorAttrs)
     else
       ShowMessage('Source file loaded OK!', $97);
+    ErrorMessage := '';
     MyApp.Run;
   end;
   MyApp.Done;

@@ -1,4 +1,4 @@
-{$I-,G+}
+{$I-}
 unit DAGood;
 
 interface uses DAtable;
@@ -117,7 +117,8 @@ function Hex4(w:word):string;
 function AsmFormat: string;
 
 procedure DAGoodInit;
-
+procedure SaveEnvir;
+procedure LoadEnvir;
 function DisAsmZ80(addr:word):string;
 function DisAsm8088(addr:word):string;
 
@@ -853,8 +854,8 @@ begin
   101: SetError('Real Data Offsets ON', $1B);
   102: SetError('Type processor i8085 OFF', $1B);
   103: SetError('Type processor i8085 ON', $1B);
-  104: SetError('Using undocument code OFF', $1B);
-  105: SetError('Using undocument code ON', $1B);
+(*  104: SetError('Using undocument code OFF', $1B);
+  105: SetError('Using undocument code ON', $1B);*)
   106: SetError('Comment Z80 code OFF', $1B);
   107: SetError('Comment Z80 code ON', $1B);
  end;
@@ -875,8 +876,6 @@ begin
 {TODO: remove}
 end;
 
-procedure LoadEnvir; forward;
-
 procedure LoadFile;
 var i,p,l:byte; tf:file;
 code :integer;
@@ -885,7 +884,8 @@ begin
  FileName:=ParamStr(1);
  Assign(f, FileName); ReSet(f, 1); if IOresult>0 then Halt(2);
  if ParamCount=1 then begin
-   BlockRead(f, PrgType, 4);
+   BlockRead(f, PrgType, 2);
+   BlockRead(f, PrgStart, 2);
    Z80:=True;
    if PrgType=$4241 then begin
      if FileSize(f)>16384 then PrgLength:=32768 else PrgLength:=16384;
@@ -1431,7 +1431,7 @@ begin
  if IOResult>0 then RemEnable:=true;
  WriteFormat;
  Close(f);
- ShowPoints;
+(* ShowPoints;*)
  TypeError(41);
 end;
 
@@ -1709,7 +1709,7 @@ begin
                     ShadowH^[RealPos+1]:=(ShadowH^[RealPos+1] xor $80) or $40;
                     SetTinyLabel(sadr);
                    end;
-{Alt +x} #45 : Halt;
+(*{Alt +x} #45 : Halt;*)
 {Alt +B} #48 : DataBlock:=not DataBlock;
 {Alt +1} #120: begin MemPos:=KeyReg[1];  LineNo:=1 end;
 {Alt +2} #121: begin MemPos:=KeyReg[2];  LineNo:=1 end;
@@ -1721,8 +1721,8 @@ begin
 {Alt +8} #127: begin MemPos:=KeyReg[8];  LineNo:=1 end;
 {Alt +9} #128: begin MemPos:=KeyReg[9];  LineNo:=1 end;
 {Alt +0} #129: begin MemPos:=KeyReg[10]; LineNo:=1 end;
-{Alt +Q} #16 : SaveEnvir;
-{Alt +W} #17 : LoadEnvir;
+(* {Alt +Q} #16 : SaveEnvir;
+{Alt +W} #17 : LoadEnvir;*)
 {Alt +C} #46 : begin
                  RemEnable:=not RemEnable;
                  TypeError(106 + byte(RemEnable));
@@ -1736,11 +1736,11 @@ begin
                  TypeError(102 + byte(Type8085));
                  WriteFormat;
                end;
-{Alt +U} #22 : if not Z80 then begin
+(*{Alt +U} #22 : if not Z80 then begin
                  UndoCode := not UndoCode;
                  TypeError(104 + byte(UndoCode));
                  WriteFormat;
-               end;
+               end;*)
 {Alt +S} #31 : ShadowH^[RealPos]:=ShadowH^[RealPos] xor $20;
 {Alt +I} #23 : ImportSymbols;
 {Alt +D} #32 : DumpPos:=RealPos;
@@ -1825,12 +1825,12 @@ begin
 {enter}  #13 : ShowGraphics(RealPos, 0);
 {Ctrl/En}#10 : ShowGraphics(RealPos, 1);
 {Space}  #32 : ShadowH^[RealPos]:=ShadowH^[RealPos] xor $20;
-{$IFDEF Debug}
+(*{$IFDEF Debug}
 {Shift~} '~' : begin
                 asm nop end{ Here will be extra stop }
                end;
          #27 : Halt;
-{$ENDIF}
+{$ENDIF}*)
   end;
 (*  memw[0:$41A]:=memw[0:$41C];*)
   if ErrorLine>0 then Dec(ErrorLine); if ErrorLine=1 then TypeError(0);

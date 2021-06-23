@@ -2,8 +2,8 @@ unit tvdaoapp;
 
 interface
 
-uses  tvdaowin,
-      Objects, Drivers, Views, Editors, Menus, Dialogs, App, FVConsts, Gadgets, MsgBox, StdDlg, ColorTxt;
+uses  tvdaowin, dagood,
+      Objects, Drivers, Views, Editors, Menus, Dialogs, App, FVConsts, Gadgets, MsgBox, ColorTxt;
 
 const cmAppToolbar      = 1000;
       cmHelp            = 1001;
@@ -17,6 +17,12 @@ const cmAppToolbar      = 1000;
       cmScan            = 1009;
       cmLoadWork        = 1011;
       cmSaveWork        = 1012;
+      cmPrevLine        = 1013;
+      cmNextLine        = 1014;
+      cmCpuTypeZ80      = 1021;
+      cmCpuType8080     = 1022;
+      cmCpuType8085     = 1023;
+      cmUndocumCommands = 1024;
 
 {---------------------------------------------------------------------------}
 
@@ -34,10 +40,12 @@ type
       procedure CreateWindow;
       procedure ShowHelpBox;
       procedure ShowAboutBox;
-      procedure OpenWorkFile;
+      procedure DoSaveWorkFile;
+      procedure DoLoadWorkFile;
       procedure CloseWindow(var P: PGroup);
     private
       Heap: PHeapView;
+      procedure DoUndocumCommands;
     End;
 
 implementation
@@ -45,13 +53,10 @@ implementation
 {---------------------------------------------------------------------------}
 
 CONSTRUCTOR TTvDao.Init;
-//VAR R: TRect;
 BEGIN
   EditorDialog := @StdEditorDialog;
   Inherited Init;
 
-//   GetExtent(R);
-//   R.A.X := R.B.X - 9; R.B.Y := R.A.Y + 1;
 END;
 
 procedure TTvDao.Idle;
@@ -60,18 +65,23 @@ begin
 end;
 
 procedure TTvDao.HandleEvent(var Event : TEvent);
-BEGIN
+begin
    Inherited HandleEvent(Event);
    If (Event.What = evCommand) Then Begin
      Case Event.Command Of
-       cmOpen    : OpenWorkFile;
-       cmHelp    : ShowHelpBox;
-       cmAbout   : ShowAboutBox;
+       cmSaveWork        : DoSaveWorkFile;
+       cmLoadWork        : DoLoadWorkFile;
+       cmHelp            : ShowHelpBox;
+       cmAbout           : ShowAboutBox;
+       cmCpuTypeZ80      : begin Z80 := true; RedrawWindow; end;
+       cmCpuType8080     : begin Z80 := false; Type8085 := false; RedrawWindow; end;
+       cmCpuType8085     : begin Z80 := false; Type8085 := true; RedrawWindow; end;
+       cmUndocumCommands : DoUndocumCommands;
        Else Exit;
-     End;
-   End;
+     end;
+   end;
    ClearEvent(Event);
-END;
+end;
 
 procedure TTvDao.InitMenuBar;
 const TitleWidth:integer = 18;
@@ -87,6 +97,10 @@ BEGIN
       NewLine(
       NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext,
       nil))))),
+    NewSubMenu('~N~avigation', 0, NewMenu(
+      NewItem('Prev Line', 'Up', kbUp, cmPrevLine, hcNoContext,
+      NewItem('Next Line', 'Down', kbDown, cmNextLine, hcNoContext,
+      nil))),
     NewSubMenu('~E~dit', 0, NewMenu(
       NewItem('Global ~L~abel Here', 'F2', kbF2, cmLabel, hcNoContext,
       NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
@@ -98,17 +112,18 @@ BEGIN
       NewItem('~S~can from Here', 'F9', kbF9, cmScan, hcNoContext,
       nil))))))))),
     NewSubMenu('~O~ptions', 0, NewMenu(
-      NewItem('~C~PU Type Z80', '', kbNoKey, cmLabel, hcNoContext,
-      NewItem('~C~PU Type i8080', '', kbNoKey, cmLabel, hcNoContext,
-      NewItem('~C~PU Type i8085', '', kbNoKey, cmLabel, hcNoContext,
-      nil)))),
+      NewItem('CPU Type ~Z~80', '', kbNoKey, cmCpuTypeZ80, hcNoContext,
+      NewItem('CPU Type i~8~080', '', kbNoKey, cmCpuType8080, hcNoContext,
+      NewItem('CPU Type i808~5~', '', kbNoKey, cmCpuType8085, hcNoContext,
+      NewItem('~U~ndocumented Commands', 'Alt-U', kbAltU, cmUndocumCommands, hcNoContext,
+      nil))))),
     // NewSubMenu('~W~indow', 0, NewMenu(
     //   StdWindowMenuItems(Nil)),        { Standard window menu }
     NewSubMenu('~H~elp', hcNoContext, NewMenu(
       NewItem('~A~bout','', kbNoKey, cmAbout, hcNoContext,
-      NewItem('~K~eyboard Quick Help','',kbNoKey, cmHelp, hcNoContext,
+      NewItem('~K~eyboard Quick Help', 'F1', kbF1, cmHelp, hcNoContext,
       nil))),
-    nil)))) //end NewSubMenus
+    nil))))) //end NewSubMenus
    ))); //end MenuBar
 
    R.A.X := 0;
@@ -221,23 +236,6 @@ begin
     nil, mfInformation or mfOKButton);
 end;
 
-PROCEDURE TTvDao.OpenWorkFile;
-var
-  R: TRect;
-  FileDialog: PFileDialog;
-  FileName: FNameStr;
-const
-  FDOptions: Word = fdOKButton or fdOpenButton;
-begin
-  FileName := '*.*';
-  New(FileDialog, Init(FileName, 'Open file', '~F~ile name', FDOptions, 1));
-  if ExecuteDialog(FileDialog, @FileName) <> cmCancel then
-  begin
-    R.Assign(0, 0, 75, 20);
-    InsertWindow(New(PEditWindow, Init(R, FileName, wnNoNumber)));
-  end;
-end;
-
 PROCEDURE TTvDao.CloseWindow(var P : PGroup);
 BEGIN
   If Assigned(P) then
@@ -247,5 +245,33 @@ BEGIN
       P:=Nil;
     END;
 END;
+
+procedure TTvDao.DoSaveWorkFile;
+begin
+  ShowMessage('Saving WorkFile...', $1B);
+  ErrorMessage := '';
+  SaveEnvir;
+  ShowMessage(ErrorMessage, ErrorAttrs);
+  ErrorMessage := '';
+end;
+
+procedure TTvDao.DoLoadWorkFile;
+begin
+  ShowMessage('Loading WorkFile...', $1B);
+  ErrorMessage := '';
+  LoadEnvir;
+  RedrawWindow;
+  ShowMessage(ErrorMessage, ErrorAttrs);
+  ErrorMessage := '';
+end;
+
+procedure TTvDao.DoUndocumCommands;
+begin
+  if not Z80 then begin
+    UndoCode := not UndoCode;
+    RedrawWindow;
+    if UndoCode then ShowMessage('Using undocument code ON', $1B) else ShowMessage('Using undocument code OFF', $1B);
+  end;
+end;
 
 end.
