@@ -38,6 +38,7 @@ type
   end;
 
 procedure ShowMessage(Msg: string; MsgAttrs: byte);
+procedure ClearMessage;
 procedure RedrawWindow;
 
 {---------------------------------------------------------------------------}
@@ -121,7 +122,6 @@ begin
   for I := 1 to LabelNum do begin
     Fmt := Labels^[I];
     while Length(Fmt) < 10 do Fmt := Fmt + ' ';
-    Fmt := Fmt + '  ' + Hex4($4010);
     MoveStr(B, Fmt, GetColor(1));
     WriteLine(2, 7 + I, Length(Fmt), 1, B);
   end;

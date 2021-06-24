@@ -7,9 +7,9 @@ uses  tvdaowin, tvdaodlg, dagood,
 
 const cmAppToolbar      = 1000;
       cmHelp            = 1001;
-      cmLabel           = 1002;
+      cmGlobalLabel     = 1002;
       cmReloc           = 1003;
-      cmData            = 1004;
+      cmMakeData        = 1004;
       cmCode            = 1005;
       cmWord            = 1006;
       cmAddress         = 1007;
@@ -44,7 +44,11 @@ type
       procedure ShowAboutBox;
       procedure DoSaveWorkFile;
       procedure DoLoadWorkFile;
+      procedure DoPrevLine;
+      procedure DoNextLine;
       procedure DoGotoAddress;
+      procedure DoMakeData;
+      procedure DoGlobalLabel;
     private
       Heap: PHeapView;
       procedure DoUndocumCommands;
@@ -52,13 +56,18 @@ type
 
 implementation
 
+procedure ClearMessages;
+begin
+  ErrorMessage := '';  { Clear message in DAGood }
+  ClearMessage;        { Clear message in the info view }
+end;
+
 {---------------------------------------------------------------------------}
 
 CONSTRUCTOR TTvDao.Init;
 BEGIN
   EditorDialog := @StdEditorDialog;
   Inherited Init;
-
 END;
 
 procedure TTvDao.Idle;
@@ -70,10 +79,15 @@ procedure TTvDao.HandleEvent(var Event : TEvent);
 begin
    Inherited HandleEvent(Event);
    If (Event.What = evCommand) Then Begin
+     ClearMessages;  { Clear any messages shown in the info view, clear DAGood error }
      Case Event.Command Of
        cmSaveWork        : DoSaveWorkFile;
        cmLoadWork        : DoLoadWorkFile;
+       cmPrevLine        : DoPrevLine;
+       cmNextLine        : DoNextLine;
        cmGotoAddress     : DoGotoAddress;
+       cmMakeData        : DoMakeData;
+       cmGlobalLabel     : DoGlobalLabel;
        cmCpuTypeZ80      : begin Z80 := true; RedrawWindow; end;
        cmCpuType8080     : begin Z80 := false; Type8085 := false; RedrawWindow; end;
        cmCpuType8085     : begin Z80 := false; Type8085 := true; RedrawWindow; end;
@@ -103,16 +117,16 @@ BEGIN
     NewSubMenu('~N~avigation', 0, NewMenu(
       NewItem('Prev Line', 'Up', kbUp, cmPrevLine, hcNoContext,
       NewItem('Next Line', 'Down', kbDown, cmNextLine, hcNoContext,
-      NewItem('Go to Address', 'Ctrl-G', kbCtrlG, cmGotoAddress, hcNoContext,
+      NewItem('Go to Address...', 'Ctrl-G', kbCtrlG, cmGotoAddress, hcNoContext,
       nil)))),
     NewSubMenu('~E~dit', 0, NewMenu(
-      NewItem('Global ~L~abel Here', 'F2', kbF2, cmLabel, hcNoContext,
+      NewItem('Global ~L~abel Here', 'F2', kbF2, cmGlobalLabel, hcNoContext,
       NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
-      NewItem('Define Byte Data Area', 'F4', kbF4, cmData, hcNoContext,
+      NewItem('Define Byte Data Area...', 'F4', kbF4, cmMakeData, hcNoContext,
       NewItem('Define ~C~ode Area', 'F5', kbF5, cmCode, hcNoContext,
-      NewItem('Define Word Data Area', 'F6', kbF6, cmWord, hcNoContext,
-      NewItem('Define Offset Table', 'F7', kbF7, cmData, hcNoContext,
-      NewItem('Delete Label', 'F8', kbF8, cmData, hcNoContext,
+      NewItem('Define Word Data Area...', 'F6', kbF6, cmWord, hcNoContext,
+      NewItem('Define Offset Table', 'F7', kbF7, cmMakeData, hcNoContext,
+      NewItem('Delete Label', 'F8', kbF8, cmMakeData, hcNoContext,
       NewItem('~S~can from Here', 'F9', kbF9, cmScan, hcNoContext,
       nil))))))))),
     NewSubMenu('~O~ptions', 0, NewMenu(
@@ -157,9 +171,9 @@ begin
     Init(R,
       NewStatusDef(0, $EFFF,
         NewStatusKey('~F1~ Help', kbF1, cmHelp,
-        NewStatusKey('~F2~ Label', kbF2, cmLabel,
+        NewStatusKey('~F2~ Label', kbF2, cmGlobalLabel,
         NewStatusKey('~F3~ Reloc', kbF3, cmReloc,
-        NewStatusKey('~F4~ Data', kbF4, cmData,
+        NewStatusKey('~F4~ Data', kbF4, cmMakeData,
         NewStatusKey('~F5~ Code', kbF5, cmCode,
         NewStatusKey('~F6~ Word', kbF6, cmWord,
         NewStatusKey('~F7~ Address', kbF7, cmAddress,
@@ -269,6 +283,25 @@ begin
   ErrorMessage := '';
 end;
 
+procedure TTvDao.DoPrevLine;
+var IP: word;
+begin
+  IP := MemPos - 22;
+  repeat
+    if Z80 then DisAsmZ80(ip) else DisAsm8088(ip);
+    Inc(IP, ILength);
+  until IP >= MemPos;
+  Dec(MemPos, ILength);
+
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoNextLine;
+begin
+  Inc(LineNo);
+  RedrawWindow;
+end;
+
 procedure TTvDao.DoGotoAddress;
 var Addr: word;
 begin
@@ -285,6 +318,23 @@ begin
     RedrawWindow;
     if UndoCode then ShowMessage('Using undocument code ON', $1B) else ShowMessage('Using undocument code OFF', $1B);
   end;
+end;
+
+procedure TTvDao.DoMakeData;
+var A1,A2: word;
+begin
+  {TODO}
+  if not EnterRange(A1, A2) then exit;
+  {TODO}
+end;
+
+procedure TTvDao.DoGlobalLabel;
+var L: string;
+begin
+  {TODO: Get label for RealPos}
+  L := '';
+  if not EnterLabel(L) then exit;
+  {TODO}
 end;
 
 end.
