@@ -2,7 +2,7 @@ unit tvdaoapp;
 
 interface
 
-uses  tvdaowin, dagood,
+uses  tvdaowin, tvdaodlg, dagood,
       Objects, Drivers, Views, Editors, Menus, Dialogs, App, FVConsts, Gadgets, MsgBox, ColorTxt;
 
 const cmAppToolbar      = 1000;
@@ -19,6 +19,7 @@ const cmAppToolbar      = 1000;
       cmSaveWork        = 1012;
       cmPrevLine        = 1013;
       cmNextLine        = 1014;
+      cmGotoAddress     = 1015;
       cmCpuTypeZ80      = 1021;
       cmCpuType8080     = 1022;
       cmCpuType8085     = 1023;
@@ -38,11 +39,12 @@ type
       procedure InitDeskTop; virtual;
       procedure InitStatusLine; virtual;
       procedure CreateWindow;
+      procedure CloseWindow(var P: PGroup);
       procedure ShowHelpBox;
       procedure ShowAboutBox;
       procedure DoSaveWorkFile;
       procedure DoLoadWorkFile;
-      procedure CloseWindow(var P: PGroup);
+      procedure DoGotoAddress;
     private
       Heap: PHeapView;
       procedure DoUndocumCommands;
@@ -71,12 +73,13 @@ begin
      Case Event.Command Of
        cmSaveWork        : DoSaveWorkFile;
        cmLoadWork        : DoLoadWorkFile;
-       cmHelp            : ShowHelpBox;
-       cmAbout           : ShowAboutBox;
+       cmGotoAddress     : DoGotoAddress;
        cmCpuTypeZ80      : begin Z80 := true; RedrawWindow; end;
        cmCpuType8080     : begin Z80 := false; Type8085 := false; RedrawWindow; end;
        cmCpuType8085     : begin Z80 := false; Type8085 := true; RedrawWindow; end;
        cmUndocumCommands : DoUndocumCommands;
+       cmAbout           : ShowAboutBox;
+       cmHelp            : ShowHelpBox;
        Else Exit;
      end;
    end;
@@ -100,7 +103,8 @@ BEGIN
     NewSubMenu('~N~avigation', 0, NewMenu(
       NewItem('Prev Line', 'Up', kbUp, cmPrevLine, hcNoContext,
       NewItem('Next Line', 'Down', kbDown, cmNextLine, hcNoContext,
-      nil))),
+      NewItem('Go to Address', 'Ctrl-G', kbCtrlG, cmGotoAddress, hcNoContext,
+      nil)))),
     NewSubMenu('~E~dit', 0, NewMenu(
       NewItem('Global ~L~abel Here', 'F2', kbF2, cmLabel, hcNoContext,
       NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
@@ -263,6 +267,15 @@ begin
   RedrawWindow;
   ShowMessage(ErrorMessage, ErrorAttrs);
   ErrorMessage := '';
+end;
+
+procedure TTvDao.DoGotoAddress;
+var Addr: word;
+begin
+  Addr := RealPos;
+  if not EnterAddr(Addr) then exit;
+  MemPos := Addr; LineNo := 1;
+  RedrawWindow;
 end;
 
 procedure TTvDao.DoUndocumCommands;
