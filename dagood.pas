@@ -119,8 +119,9 @@ function AsmFormat: string;
 procedure DAGoodInit;
 procedure SaveEnvir;
 procedure LoadEnvir;
-function DisAsmZ80(addr:word):string;
-function DisAsm8088(addr:word):string;
+function DisAsm(addr: word): string; { Disasm using the current CPU options }
+procedure MakeData(w1, w2: word); { Mark this area as byte data }
+procedure MakeCode(w1, w2: word); { Mark this area as code }
 
 
 implementation
@@ -670,6 +671,11 @@ begin
  DisAsm8088:=s;
 end;
 
+function DisAsm(addr: word): string;
+begin
+  if Z80 then DisAsm := DisAsmZ80(addr) else DisAsm := DisAsm8088(addr);
+end;
+
 procedure SetTinyLabel(addr:word);{1-code, 2-data, 3-table }
 var l:word;
 begin
@@ -871,11 +877,6 @@ begin
   AsmFormat := Fmt;
 end;
 
-Procedure WriteFormat;
-begin
-{TODO: remove}
-end;
-
 procedure LoadFile;
 var i,p,l:byte; tf:file;
 code :integer;
@@ -1038,20 +1039,20 @@ begin
  until False;
 end;
 
-procedure MakeCode;
-var w1, w2:word;i:longint;
+procedure MakeCode(w1, w2: word);
+var (*w1, w2:word;*) i:longint;
 begin
- w1:=RealPos; w2:=RealPos;
- if not EnterRange(w1, w2) then Exit;
+(* w1:=RealPos; w2:=RealPos;
+ if not EnterRange(w1, w2) then Exit;*)
  for i:=0 to (w2-w1) do
   ShadowH^[w1+i]:=$00 or (ShadowH^[w1+i] and $3F);
 end;
 
-procedure MakeData;
-var w1, w2:word;i:longint;
+procedure MakeData(w1, w2: word);
+var (*w1, w2:word;*) i:longint;
 begin
- w1:=RealPos; w2:=RealPos;
- if not EnterRange(w1, w2) then Exit;
+(* w1:=RealPos; w2:=RealPos;
+ if not EnterRange(w1, w2) then Exit;*)
  for i:=0 to (w2-w1) do
   ShadowH^[w1+i]:=$40 or (ShadowH^[w1+i] and $3F);
 end;
@@ -1176,7 +1177,7 @@ begin
  WriteTo('Lines saved  :',58,19,$30);
  WriteTo('In progress  :',58,20,$30);
  WriteTo('[Saving *.ASM files]',58,16,$3F);
- WriteFormat;
+ (* WriteFormat;*)
  Writeln(t,';°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°',
      #13#10';°°°°              This file was created by              °°°°',
      #13#10';°°°°          PROGRAM RECOMPILE SYSTEM ',Version,'         °°°°',
@@ -1384,10 +1385,10 @@ begin
  BlockWrite(f,ShadowH^[PrgBegin],PrgLength);
  BlockWrite(f,ShadowL^[PrgBegin],PrgLength);
  BlockWrite(f,LabelNum,16);
- BlockWrite(f,GreedCall,21); {GreedCall,GreeCallNum}
+ BlockWrite(f,GreedCall,20); BlockWrite(f,DumpChar,1);
  BlockWrite(f,Labels^,SizeOf(Labels^));
- BlockWrite(f,Follow,SizeOf(Follow)+1);{Follow,FolNum}
- BlockWrite(f,KeyReg,10*2+2);
+ BlockWrite(f,Follow,SizeOf(Follow)); BlockWrite(f,FolNum,1);
+ BlockWrite(f,KeyReg,10*2); BlockWrite(f,Z80,1); BlockWrite(f,FirstZ80,1);
  BlockWrite(f,RealDataLoc,1);
  BlockWrite(f,Type8085,1);
  BlockWrite(f,UndoCode,1);
@@ -1410,10 +1411,10 @@ begin
  BlockRead(f,ShadowH^[PrgBegin],PrgLength);
  BlockRead(f,ShadowL^[PrgBegin],PrgLength);
  BlockRead(f,LabelNum,16);
- BlockRead(f,GreedCall,21); {GreedCall,GreeCallNum}
+ BlockRead(f,GreedCall,20); BlockRead(f,DumpChar,1);
  BlockRead(f,Labels^,SizeOf(Labels^));
- BlockRead(f,Follow,SizeOf(Follow)+1);{Follow,FolNum}
- BlockRead(f,KeyReg,10*2+2);
+ BlockRead(f,Follow,SizeOf(Follow)); BlockRead(f,FolNum,1);
+ BlockRead(f,KeyReg,10*2); BlockRead(f,Z80,1); BlockRead(f,FirstZ80,1);
  if IOresult>0 then
    begin
     TypeError(4);
@@ -1429,52 +1430,20 @@ begin
  BlockRead(f,RemEnable,1);
  {$I+}
  if IOResult>0 then RemEnable:=true;
- WriteFormat;
+(* WriteFormat;*)
  Close(f);
 (* ShowPoints;*)
  TypeError(41);
 end;
 
 procedure ShowDump;
-//var i:integer;attr:byte;
 begin
-(* if CharDec<>0 then WriteTo('['+Hex2(CharDec)+']',2,16,$3F) else WriteTo('ÍÍÍÍ',2,16,$3F);
- if (RealPos>=DumpPos) and (RealPos<=DumpPos+6*16) then DAttr:=True;
- if (OldDump=DumpPos) and not DAttr then Exit;
- if DumpChar then
- for i:=0 to 6*48-1 do
-  begin
-   if DumpPos+i=RealPos then begin attr:=$17; DAttr:=True end else attr:=$30;
-   WriteTo(Char(Byte(PrgMem^[DumpPos+i]+CharDec)), (i mod 48)+8, i div 48+17, attr);
-   if i mod 48=0 then WriteTo(Hex4(DumpPos+i)+':', 2, i div 48+17, $30);
-  end    else
- for i:=0 to 6*16-1 do
-  begin
-   if DumpPos+i=RealPos then begin attr:=$17; DAttr:=True end else attr:=$30;
-   WriteTo(Hex2(PrgMem^[DumpPos+i]), (i and 15)*3+8, i div 16+17, attr);
-   WriteTo(' ', (i and 15)*3+8+2, i div 16+17,$30);
-   if i and 15=0 then WriteTo(Hex4(DumpPos+i)+':', 2, i div 16+17, $30);
-  end;
- OldDump:=DumpPos;*)
+{TODO: remove}
 end;
 
 procedure ShowList;
-//var i, attr:byte; ip:word; s:string;
 begin
-(* ip:=MemPos; PageByte:=0;
- for i:=1 to 14 do
-  begin
-   if i=LineNo then attr:=$17 else attr:=$30;
-   if Z80 then s:=DisAsmZ80(ip) else s:=DisAsm8088(ip);
-   if ip=OriginPos then s:=chr(16)+s else s:=' '+s;
-   if (ShadowH^[ip] and $20<>0) and (ShadowH^[ip] shr 6<>0) then s[11]:='ð';
-   WriteTo(s,1,i+1,attr);
-   if not LongCode then begin
-     inc(ip, ILength); inc(PageByte, ILength);
-     Adds[i]:=ILength;
-   end;
-  end;
-  LongCode:=False;*)
+{TODO: remove}
 end;
 
 procedure DeleteLabel(ad:word);
@@ -1638,8 +1607,6 @@ end;
 procedure StartUp;
 begin
 {NOTE: Initialization moved to DAGoodInit}
-(* ShowPoints;*)
-(* if ldw then LoadEnvir;*)
  repeat
 (*  repeat
    ShowStatus;
@@ -1652,7 +1619,7 @@ begin
          #75 : Dec(DumpPos);
          #77 : Inc(DumpPos);
          #72 : if LineNo>1  then dec(LineNo) else GoUp;
-         #80 : if LineNo<14 then inc(LineNo) else inc(MemPos, Adds[1]);
+         (*#80 : if LineNo<14 then inc(LineNo) else inc(MemPos, Adds[1]);*)
          #73 : PageUp;
          #81 : Inc(MemPos, PageByte);
 {F2}     #60 : begin GetLabelName(ln); if ln<>'' then SetLabelName(RealPos,ln); end;
@@ -1668,8 +1635,8 @@ begin
                              end;
                 if i=PrgBegin+PrgLength then TypeError(29);
                end;
-{F4}     #62 : MakeData;
-{F5}     #63 : MakeCode;
+(*{F4}     #62 : MakeData;*)
+(*{F5}     #63 : MakeCode;*)
 {F6}     #64 : MakeWord;
 {F7}     #65 : MakeAddress;
 {F8}     #66 : DeleteLabel(RealPos);
@@ -1694,7 +1661,7 @@ begin
                 ShadowH^[RealPos]:=ShadowH^[RealPos] or $20;
                end;
 {Ctrl+F9}#102: SaveASMfile;
-{Ctrl+F2}#95 : ShadowH^[RealPos]:=ShadowH^[RealPos] xor $10;
+(*{Ctrl+F2}#95 : ShadowH^[RealPos]:=ShadowH^[RealPos] xor $10;*)
 {Alt +F2}#105: if ShadowH^[RealPos] shr 6=0 then
                   ShadowH^[RealPos+1]:=(ShadowH^[RealPos+1] xor $80) or $40 else
                    begin
@@ -1734,7 +1701,7 @@ begin
 {Alt +T} #20 : if not Z80 then begin
                  Type8085 := not Type8085;
                  TypeError(102 + byte(Type8085));
-                 WriteFormat;
+                 (* WriteFormat;*)
                end;
 (*{Alt +U} #22 : if not Z80 then begin
                  UndoCode := not UndoCode;
@@ -1809,7 +1776,7 @@ begin
 {Ctrl+B} #2  : begin MemPos:=PrgBegin;LineNo:=1 end;
 {Ctrl+S} #19 : begin MemPos:=PrgStart;LineNo:=1 end;
 {Ctrl+E} #5  : begin MemPos:=PrgBegin+PrgLength;LineNo:=1 end;
-{Ctrl+Z} #26 : begin Z80:=not Z80;WriteFormat;end;
+{Ctrl+Z} #26 : begin Z80:=not Z80; (* WriteFormat;*) end;
 {Shift1} '!' : begin KeyReg[1]:=RealPos; ShowPoints end;
 {Shift2} '@' : begin KeyReg[2]:=RealPos; ShowPoints  end;
 {Shift3} '#' : begin KeyReg[3]:=RealPos; ShowPoints  end;

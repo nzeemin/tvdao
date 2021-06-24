@@ -10,20 +10,22 @@ const cmAppToolbar      = 1000;
       cmGlobalLabel     = 1002;
       cmReloc           = 1003;
       cmMakeData        = 1004;
-      cmCode            = 1005;
+      cmMakeCode        = 1005;
       cmWord            = 1006;
       cmAddress         = 1007;
       cmDelete          = 1008;
-      cmScan            = 1009;
+      cmScan            = 1010;
       cmLoadWork        = 1011;
       cmSaveWork        = 1012;
       cmPrevLine        = 1013;
       cmNextLine        = 1014;
       cmGotoAddress     = 1015;
+      cmLxxxxLabel      = 1016;
       cmCpuTypeZ80      = 1021;
       cmCpuType8080     = 1022;
       cmCpuType8085     = 1023;
       cmUndocumCommands = 1024;
+      cmDumpChar        = 1025;
 
 {---------------------------------------------------------------------------}
 
@@ -48,13 +50,18 @@ type
       procedure DoNextLine;
       procedure DoGotoAddress;
       procedure DoMakeData;
+      procedure DoMakeCode;
+      procedure DoLxxxxLabel;
       procedure DoGlobalLabel;
     private
       Heap: PHeapView;
       procedure DoUndocumCommands;
     End;
 
+
 implementation
+
+const VersionStr = 'tvDAO v.0.0';
 
 procedure ClearMessages;
 begin
@@ -87,10 +94,13 @@ begin
        cmNextLine        : DoNextLine;
        cmGotoAddress     : DoGotoAddress;
        cmMakeData        : DoMakeData;
+       cmMakeCode        : DoMakeCode;
        cmGlobalLabel     : DoGlobalLabel;
+       cmLxxxxLabel      : DoLxxxxLabel;
        cmCpuTypeZ80      : begin Z80 := true; RedrawWindow; end;
        cmCpuType8080     : begin Z80 := false; Type8085 := false; RedrawWindow; end;
        cmCpuType8085     : begin Z80 := false; Type8085 := true; RedrawWindow; end;
+       cmDumpChar        : begin DumpChar := not DumpChar; RedrawWindow; end;
        cmUndocumCommands : DoUndocumCommands;
        cmAbout           : ShowAboutBox;
        cmHelp            : ShowHelpBox;
@@ -101,40 +111,43 @@ begin
 end;
 
 procedure TTvDao.InitMenuBar;
-const TitleWidth:integer = 18;
-VAR R: TRect; PS: PStaticText;
-BEGIN
-   GetExtent(R);   { Get view extents }
-   R.B.Y := R.A.Y + 1;  { One line high  }
-   R.A.X := R.A.X + TitleWidth;
-   MenuBar := New(PMenuBar, Init(R, NewMenu(
+var R: TRect; PS: PStaticText; V: string;
+begin
+  V := '  ' + VersionStr + '  ';
+
+  GetExtent(R);   { Get view extents }
+  R.B.Y := R.A.Y + 1;  { One line high  }
+  R.A.X := R.A.X + Length(V);
+  MenuBar := New(PMenuBar, Init(R, NewMenu(
     NewSubMenu('~F~ile', 0, NewMenu(
-      NewItem('~L~oad WRK file', 'Alt-W', kbAltW, cmLoadWork, hcNoContext,
-      NewItem('~S~ave WRK file', 'Alt-Q', kbAltQ, cmSaveWork, hcNoContext,
+      NewItem('~L~oad WRK file', 'Alt+W', kbAltW, cmLoadWork, hcNoContext,
+      NewItem('~S~ave WRK file', 'Alt+Q', kbAltQ, cmSaveWork, hcNoContext,
       NewLine(
       NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext,
       nil))))),
     NewSubMenu('~N~avigation', 0, NewMenu(
       NewItem('Prev Line', 'Up', kbUp, cmPrevLine, hcNoContext,
       NewItem('Next Line', 'Down', kbDown, cmNextLine, hcNoContext,
-      NewItem('Go to Address...', 'Ctrl-G', kbCtrlG, cmGotoAddress, hcNoContext,
+      NewItem('Go to Address...', 'Ctrl+G', kbCtrlG, cmGotoAddress, hcNoContext,
       nil)))),
     NewSubMenu('~E~dit', 0, NewMenu(
       NewItem('Global ~L~abel Here', 'F2', kbF2, cmGlobalLabel, hcNoContext,
       NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
       NewItem('Define Byte Data Area...', 'F4', kbF4, cmMakeData, hcNoContext,
-      NewItem('Define ~C~ode Area', 'F5', kbF5, cmCode, hcNoContext,
+      NewItem('Define ~C~ode Area...', 'F5', kbF5, cmMakeCode, hcNoContext,
       NewItem('Define Word Data Area...', 'F6', kbF6, cmWord, hcNoContext,
       NewItem('Define Offset Table', 'F7', kbF7, cmMakeData, hcNoContext,
       NewItem('Delete Label', 'F8', kbF8, cmMakeData, hcNoContext,
       NewItem('~S~can from Here', 'F9', kbF9, cmScan, hcNoContext,
-      nil))))))))),
+      NewItem('Set/Delete Lxxxx Label', 'Ctrl+F2', kbCtrlF2, cmLxxxxLabel, hcNoContext,
+      nil)))))))))),
     NewSubMenu('~O~ptions', 0, NewMenu(
       NewItem('CPU Type ~Z~80', '', kbNoKey, cmCpuTypeZ80, hcNoContext,
       NewItem('CPU Type i~8~080', '', kbNoKey, cmCpuType8080, hcNoContext,
       NewItem('CPU Type i808~5~', '', kbNoKey, cmCpuType8085, hcNoContext,
-      NewItem('~U~ndocumented Commands', 'Alt-U', kbAltU, cmUndocumCommands, hcNoContext,
-      nil))))),
+      NewItem('~U~ndocumented Commands', 'Alt+U', kbAltU, cmUndocumCommands, hcNoContext,
+      NewItem('Hex/~C~har Dump', '', kbNoKey, cmDumpChar, hcNoContext,
+      nil)))))),
     // NewSubMenu('~W~indow', 0, NewMenu(
     //   StdWindowMenuItems(Nil)),        { Standard window menu }
     NewSubMenu('~H~elp', hcNoContext, NewMenu(
@@ -142,22 +155,22 @@ BEGIN
       NewItem('~K~eyboard Quick Help', 'F1', kbF1, cmHelp, hcNoContext,
       nil))),
     nil))))) //end NewSubMenus
-   ))); //end MenuBar
+  ))); //end MenuBar
 
-   R.A.X := 0;
-   R.B.X := TitleWidth;
-   PS := New(PColoredText, Init(R, '  tvDAO v.0.0', $F0));
-   Insert(PS);
-END;
+  R.A.X := 0;
+  R.B.X := Length(V);
+  PS := New(PColoredText, Init(R, V, $F0));
+  Insert(PS);
+end;
 
 procedure TTvDao.InitDesktop;
 VAR R: TRect;
-BEGIN
+begin
    GetExtent(R);  { Get app extents }
    Inc(R.A.Y);    { Adjust top down }
    Dec(R.B.Y);    { Adjust bottom up }
    Desktop := New(PDeskTop, Init(R));
-END;
+end;
 
 procedure TTvDao.InitStatusLine;
 const HeapW: integer = 12;
@@ -174,7 +187,7 @@ begin
         NewStatusKey('~F2~ Label', kbF2, cmGlobalLabel,
         NewStatusKey('~F3~ Reloc', kbF3, cmReloc,
         NewStatusKey('~F4~ Data', kbF4, cmMakeData,
-        NewStatusKey('~F5~ Code', kbF5, cmCode,
+        NewStatusKey('~F5~ Code', kbF5, cmMakeCode,
         NewStatusKey('~F6~ Word', kbF6, cmWord,
         NewStatusKey('~F7~ Address', kbF7, cmAddress,
         NewStatusKey('~F8~ Delete', kbF8, cmDelete,
@@ -284,21 +297,31 @@ begin
 end;
 
 procedure TTvDao.DoPrevLine;
-var IP: word;
+var IP: word; I: integer;
 begin
-  IP := MemPos - 22;
-  repeat
-    if Z80 then DisAsmZ80(ip) else DisAsm8088(ip);
-    Inc(IP, ILength);
-  until IP >= MemPos;
-  Dec(MemPos, ILength);
+  if LineNo > 1 then
+    Dec(LineNo)
+  else begin {GoUp}
+    IP := MemPos - 22;
+    repeat
+      DisAsm(ip);
+      Inc(IP, ILength);
+    until IP >= MemPos;
+    Dec(MemPos, ILength);
+  end;
+
+  RealPos := MemPos; for I := 2 to LineNo do Inc(RealPos, Adds[I - 1]); {ShowStatus}
 
   RedrawWindow;
 end;
 
 procedure TTvDao.DoNextLine;
+var I: integer;
 begin
-  Inc(LineNo);
+  if LineNo < 14 then Inc(LineNo) else Inc(MemPos, Adds[1]);
+
+  RealPos := MemPos; for I := 2 to LineNo do Inc(RealPos, Adds[I - 1]); {ShowStatus}
+
   RedrawWindow;
 end;
 
@@ -308,6 +331,40 @@ begin
   Addr := RealPos;
   if not EnterAddr(Addr) then exit;
   MemPos := Addr; LineNo := 1;
+  RealPos := MemPos; {ShowStatus}
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoLxxxxLabel;
+begin
+  ShadowH^[RealPos] := ShadowH^[RealPos] xor $10;
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoGlobalLabel;
+var L: string;
+begin
+  {TODO: Get label for RealPos}
+  L := '';
+  if not EnterLabel(L) then exit;
+  {TODO}
+end;
+
+procedure TTvDao.DoMakeData;
+var A1,A2: word;
+begin
+  A1 := RealPos; A2 := RealPos;
+  if not EnterRange(A1, A2) then exit;
+  MakeData(A1, A2);
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoMakeCode;
+var A1,A2: word;
+begin
+  A1 := RealPos; A2 := RealPos;
+  if not EnterRange(A1, A2) then exit;
+  MakeCode(A1, A2);
   RedrawWindow;
 end;
 
@@ -318,23 +375,6 @@ begin
     RedrawWindow;
     if UndoCode then ShowMessage('Using undocument code ON', $1B) else ShowMessage('Using undocument code OFF', $1B);
   end;
-end;
-
-procedure TTvDao.DoMakeData;
-var A1,A2: word;
-begin
-  {TODO}
-  if not EnterRange(A1, A2) then exit;
-  {TODO}
-end;
-
-procedure TTvDao.DoGlobalLabel;
-var L: string;
-begin
-  {TODO: Get label for RealPos}
-  L := '';
-  if not EnterLabel(L) then exit;
-  {TODO}
 end;
 
 end.

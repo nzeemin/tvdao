@@ -33,7 +33,6 @@ type
     WD: PTvDaoDisasmView;
     WI: PTvDaoInfoView;
     WM: PTvDaoMemoryView;
-    WDS, WMS: PScrollBar;
     TH, BH: integer;  { Heights of top and bottom parts }
   end;
 
@@ -45,7 +44,8 @@ procedure RedrawWindow;
 
 implementation
 
-const LeftPartWidth: integer = 76;  { width of left part }
+const DisasmHeight: integer = 14;
+const LeftPartWidth: integer = 74;  { width of left part }
 
 var DaoWindow: PTvDaoWindow = nil;
     InfoView: PTvDaoInfoView = nil;
@@ -116,28 +116,28 @@ begin
     WriteLine(1, 5, Length(Fmt), 1, B);
   end;
 
-  Fmt := 'Labels (' + IntToStr(LabelNum) + '):';
+  Fmt := 'Labels: ' + IntToStr(LabelNum);
   MoveStr(B, Fmt, GetColor(1));
   WriteLine(2, 7, Length(Fmt), 1, B);
   for I := 1 to LabelNum do begin
     Fmt := Labels^[I];
     while Length(Fmt) < 10 do Fmt := Fmt + ' ';
     MoveStr(B, Fmt, GetColor(1));
-    WriteLine(2, 7 + I, Length(Fmt), 1, B);
+    WriteLine(4, 7 + I, Length(Fmt), 1, B);
   end;
 
   MoveStr(B, 'GreedCalls:', GetColor(1));
-  WriteLine(22, 7, 11, 1, B);
+  WriteLine(19, 7, 11, 1, B);
   for I := 1 to 10 do begin
     MoveStr(B, IntToStr(I mod 10) + ': ' + Hex4(GreedCall[I]), GetColor(1));
-    WriteLine(23, 7 + I, 7, 1, B);
+    WriteLine(20, 7 + I, 7, 1, B);
   end;
 
   MoveStr(B, 'Bookmarks:', GetColor(1));
-  WriteLine(22, 19, 10, 1, B);
+  WriteLine(19, 19, 10, 1, B);
   for I := 1 to 10 do begin
     MoveStr(B, IntToStr(I mod 10) + ': ' + Hex4(KeyReg[I]), GetColor(1));
-    WriteLine(23, 19 + I, 7, 1, B);
+    WriteLine(20, 19 + I, 7, 1, B);
   end;
 end;
 
@@ -149,9 +149,9 @@ begin
   inherited Draw;
 
   IP := MemPos; PageByte := 0;
-  for I := 1 to 20 do begin
+  for I := 1 to 14 do begin
     if I = LineNo then Attr := $97 else Attr := GetColor(1);
-    if Z80 then S := DisAsmZ80(IP) else S := DisAsm8088(IP);
+    S := DisAsm(IP);
     if IP = OriginPos then S := Chr(16) + S else S := ' ' + S;
     if (ShadowH^[IP] and $20 <> 0) and (ShadowH^[ip] shr 6 <> 0) then S[11] := #240;
     MoveStr(B, S, Attr);
@@ -175,17 +175,25 @@ begin
   WriteLine(0, 0, Size.X, 1, B);
 
   IP := DumpPos;
-  for I := 0 to Size.Y - 1 do begin 
+  for I := 0 to Size.Y - 1 do begin
     S := Hex4(IP) + ':'; SC := '';
-    for J := 0 to 15 do begin
-      S := S + ' ' + Hex2(PrgMem^[IP]);
-      SC := SC + Chr(PrgMem^[IP]);
-      Inc(IP);
+    if DumpChar then begin
+      S := S + '  ';
+      for J := 0 to 47 do begin
+        S := S + Chr(PrgMem^[IP]);
+        Inc(IP);
+      end;
+    end else begin
+      for J := 0 to 15 do begin
+        S := S + ' ' + Hex2(PrgMem^[IP]);
+        SC := SC + Chr(PrgMem^[IP]);
+        Inc(IP);
+      end;
+      MoveStr(B, SC, GetColor(1));
+      WriteLine(56, I + 1, Length(SC), 1, B);
     end;
     MoveStr(B, S, GetColor(1));
-    WriteLine(1, I + 1, 5 + 48, 1, B);
-    MoveStr(B, SC, GetColor(1));
-    WriteLine(56, I + 1, 16, 1, B);
+    WriteLine(1, I + 1, Length(S), 1, B);
   end;
 end;
 
@@ -200,14 +208,11 @@ begin
   Flags := 0; //Flags and (not (wfClose or wfZoom or wfGrow));
 
   GetClipRect(RC);
-  TH := (RC.B.Y - RC.A.Y - 2) div 3 * 2;
+  TH := DisasmHeight; //(RC.B.Y - RC.A.Y - 2) div 3 * 2;
   BH := (RC.B.Y - RC.A.Y - 2) - TH;
 
   { Left top part, disassembly }
-  R.Assign(RC.A.X + LeftPartWidth, RC.A.Y + 1, RC.A.X + 1 + LeftPartWidth, RC.A.Y + TH);
-  //WDS := New(PScrollBar, Init(R));
-  //Insert(WDS);
-  R.Assign(RC.A.X + 1, RC.A.Y + 1, RC.A.X + LeftPartWidth, RC.A.Y + TH);
+  R.Assign(RC.A.X + 1, RC.A.Y + 1, RC.A.X + LeftPartWidth, RC.A.Y + TH + 1);
   WD := New(PTvDaoDisasmView, Init(R));
   Insert(WD);
 
@@ -217,8 +222,6 @@ begin
 
   { Left bottom part, memory view }
   R.Assign(RC.A.X + LeftPartWidth, RC.B.Y - 1 - BH, RC.A.X + 1 + LeftPartWidth, RC.B.Y - 1);
-  //WMS := New(PScrollBar, Init(R));
-  //Insert(WMS);
   R.Assign(RC.A.X + 1, RC.B.Y - 1 - BH, RC.A.X + LeftPartWidth + 1, RC.B.Y - 1);
   WM := New(PTvDaoMemoryView, Init(R));
   Insert(WM);
