@@ -12,8 +12,13 @@ function EnterLabel(var L: string): boolean;
 
 implementation
 
-uses Objects, Dialogs, App, FVConsts, Views, Drivers,
+uses Objects, Dialogs, App, FVConsts, Views, Drivers, Validate,
      DAGood { Hex4 };
+
+const
+    HexNumberChars: set of char = ['0'..'9','A'..'F','a'..'f'];
+    LabelChars: set of char = ['A'..'Z','a'..'z','0'..'9','_','.'];
+    AlphaChars: set of char = ['A'..'Z','a'..'z'];
 
 type
   PHex4InputLine = ^THex4InputLine;
@@ -22,7 +27,6 @@ type
     function DataSize: dword; virtual;
     procedure GetData(var Rec); virtual;
     procedure SetData(var Rec); virtual;
-    procedure HandleEvent(Var Event: TEvent); virtual;
   end;
 
   PTvDaoEnterAddrDialog = ^TTvDaoEnterAddrDialog;
@@ -45,6 +49,11 @@ type
   TTvDaoEnterLabelDialog = object(TDialog)
     Edit: PInputLine;
     constructor Init(R: TRect);
+  end;
+
+  PLabelValidator = ^TLabelValidator;
+  TLabelValidator = object(TValidator)
+    function IsValid(const S: string): boolean; virtual;
   end;
 
 {---------------------------------------------------------------------------}
@@ -85,21 +94,6 @@ begin
   Data^ := Hex4(word(Rec));
 end;
 
-procedure THex4InputLine.HandleEvent(Var Event: TEvent);
-begin
-  if Event.What = evKeyDown then begin
-    { Filter out unwanted symbols, except for 0..9, a..f, A..F }
-    if  (Event.CharCode >= ' ') and (Event.CharCode <= '/') or
-        (Event.CharCode >= ':') and (Event.CharCode <= '@') or
-        (Event.CharCode >= 'g') and (Event.CharCode <= '~') or
-        (Event.CharCode >= 'G') and (Event.CharCode <= '`') then begin
-      ClearEvent(Event);
-      exit;
-    end;
-  end;
-  inherited HandleEvent(Event);
-end;
-
 {---------------------------------------------------------------------------}
 
 constructor TTvDaoEnterAddrDialog.Init(R: TRect);
@@ -115,6 +109,8 @@ begin
   Insert(Edit);
   R.Assign(3, 2, 12, 3);
   Insert(New(PLabel, Init(R, '~A~ddress:', Edit)));
+
+  Edit^.SetValidator(New(PFilterValidator, Init(HexNumberChars)));
 end;
 
 {---------------------------------------------------------------------------}
@@ -145,6 +141,10 @@ begin
   Insert(EditLen);
   R.Assign(3, 5, 12, 6);
   Insert(New(PLabel, Init(R, '~L~ength:', EditLen)));
+
+  EditFrom^.SetValidator(New(PFilterValidator, Init(HexNumberChars)));
+  EditTo^.SetValidator(New(PFilterValidator, Init(HexNumberChars)));
+  EditLen^.SetValidator(New(PFilterValidator, Init(HexNumberChars)));
 end;
 
 {---------------------------------------------------------------------------}
@@ -162,6 +162,16 @@ begin
   Insert(Edit);
   R.Assign(3, 2, 12, 3);
   Insert(New(PLabel, Init(R, '~L~abel:', Edit)));
+
+  Edit^.SetValidator(New(PFilterValidator, Init(LabelChars)));
+  Edit^.SetValidator(New(PLabelValidator, Init()));
+end;
+
+function TLabelValidator.IsValid(const S: string): boolean;
+begin
+  if Length(S) = 0 then IsValid := false
+  else if not (S[1] in AlphaChars) then IsValid := false
+  else IsValid := true;
 end;
 
 {---------------------------------------------------------------------------}
