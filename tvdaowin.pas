@@ -89,24 +89,28 @@ begin
   MoveChar(B, #196, GetColor(1), Size.X);
   WriteLine(1, 6, Size.X - 1, 1, B);
 
-  MoveStr(B, 'Source file:', GetColor(1));
-  WriteLine(2, 0, 12, 1, B);
-  MoveStr(B, ParamStr(1), GetColor(2));
-  WriteLine(19, 0, Length(ParamStr(1)), 1, B);
-  MoveStr(B, 'InitAddress:', GetColor(1));
-  WriteLine(2, 1, 12, 1, B);
+//   MoveStr(B, 'Source file:', GetColor(1));
+//   WriteLine(2, 0, 12, 1, B);
+//   MoveStr(B, ParamStr(1), GetColor(2));
+//   WriteLine(20, 0, Length(ParamStr(1)), 1, B);
+  MoveStr(B, 'Init Address:', GetColor(1));
+  WriteLine(2, 0, 13, 1, B);
   MoveStr(B, Hex4(PrgStart), GetColor(2));
-  WriteLine(19, 1, 4, 1, B);
-  MoveStr(B, 'Memory position:', GetColor(1));
-  WriteLine(2, 2, 16, 1, B);
+  WriteLine(20, 0, 4, 1, B);
+  MoveStr(B, 'Current Position:', GetColor(1));
+  WriteLine(2, 1, 17, 1, B);
   MoveStr(B, Hex4(RealPos), GetColor(2));
-  WriteLine(19, 2, 4, 1, B);
+  WriteLine(20, 1, 4, 1, B);
+  MoveStr(B, 'Origin  Position:', GetColor(1));
+  WriteLine(2, 2, 17, 1, B);
+  MoveStr(B, Hex4(OriginPos), GetColor(2));
+  WriteLine(20, 2, 4, 1, B);
 
   Fmt := AsmFormat;
   MoveStr(B, 'ASM Format:', GetColor(1));
   WriteLine(2, 3, 11, 1, B);
   MoveStr(B, Fmt, GetColor(2));
-  WriteLine(19, 3, Length(Fmt), 1, B);
+  WriteLine(20, 3, Length(Fmt), 1, B);
 
   if Length(Message) > 0 then begin
     Fmt := '  ' + Message;
@@ -126,11 +130,11 @@ begin
     WriteLine(4, 7 + I, Length(Fmt), 1, B);
   end;
 
-  MoveStr(B, 'GreedCalls:', GetColor(1));
-  WriteLine(19, 7, 11, 1, B);
+  MoveStr(B, 'Greed Calls:', GetColor(1));
+  WriteLine(19, 7, 12, 1, B);
   for I := 1 to 10 do begin
-    MoveStr(B, IntToStr(I mod 10) + ': ' + Hex4(GreedCall[I]), GetColor(1));
-    WriteLine(20, 7 + I, 7, 1, B);
+    MoveStr(B, Hex4(GreedCall[I]), GetColor(1));
+    WriteLine(23, 7 + I, 4, 1, B);
   end;
 
   MoveStr(B, 'Bookmarks:', GetColor(1));

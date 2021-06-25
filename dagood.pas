@@ -4,21 +4,6 @@ unit DAGood;
 interface uses DAtable;
 
 const
-  Version   : string[8]='v(1.12) ';{TODO}
-
-  ParamS    : string[14]=('/*#?&%~^@!|"`');  { - must be last}
-  HexChar   : string[16]=('0123456789ABCDEF');
-  IndexName : array[1..2] of string[2]=('IX','IY');
-  IndexVar  : array[1..2] of string[8]=('(IX|)','(IY|)');
-{  IndexName8: array[1..2] of string[2]=('di','si');}
-  IndexVar8 : array[1..2] of string[8]=('[di|]','[si|]');
-  SegName   : array[0..1] of string[2]=('ds','cs');
-  DAAval    : array[0..1] of string[3]=('daa','das');
-  Z80SName  : array[0..1] of string[1]=('','>');
-  WrkHeader : string[16]='DA_WorkFile V1.0';
-  Format    : array[False..True] of string[5]=('8080 ','Z80  ');
-  TabSize   : byte = 10;
-  InterSize : byte = 4;
   RealDataLoc: boolean = False;
   Type8085   : boolean = False;
   UndoCode   : boolean = False;
@@ -30,13 +15,6 @@ const
 
   MaxLabels = 1000;
   MaxBlocks = 8;
-
-  BCode     = 1;
-  BData     = 2;
-
-  LCode     = 1;
-  LData     = 2;
-  LTable    = 3;
 
   BIOSenabled    : boolean = True;
   BIOShigh       : word    = $159;
@@ -51,24 +29,21 @@ type
  PLabelArray = ^LabelArray;
 
 var
- FileName                   : string; {TODO: rename}
+ FileName                   : string; { Source file name }
  FileLength                 : longint;
 
  PrgMem, ShadowH, ShadowL   : PByteArray;
  Labels                     : PLabelArray;
 
- PrgType, PrgStart,
- PrgBegin, PrgLength,
- PrgData                    : word;
+ PrgType, PrgStart, PrgBegin, PrgLength, PrgData : word;
  PLow, PHigh                : word;
 
  LabelNum, TinyLabels       : word;
- MemPos, DumpPos, RealPos,
- OriginPos, CallerPos       : word;
- LineNo                     : integer;
+ MemPos, DumpPos, RealPos, OriginPos, CallerPos : word;
+ LineNo                     : integer; { Current line number for disasm view }
 
  GreedCall                  : array[1..10] of word;
- DumpChar                   : boolean;
+ DumpChar                   : boolean; { Memory view mode }
 
  ProcQ                      : array[1..1000] of word;
  Proc                       : array[1..5000] of word;
@@ -80,7 +55,7 @@ var
  FindString, FControl       : string;
  FindPos                    : word;
 
- KeyReg                     : array[1..10] of word;
+ KeyReg                     : array[1..10] of word; { Bookmarks }
  Z80                        : boolean;
  FirstZ80                   : boolean;
  LongCode                   : boolean;
@@ -93,20 +68,7 @@ var
  Adds                       : array[1..14] of word;
 
  ILength                    : byte;
- IndexNo, SegmentNo         : byte;
- IndexOfs                   : shortint;
  LabelNo                    : integer;
-
- CurHeader                  : string[16];
- ErrorLine                  : byte;
- OldDump, sadr              : word;
- DAttr                      : boolean;
-
- IPtr                       : word;
-
- ldw                        : boolean; { Flag indicating we have the .WRK file and need to load it }
-
- LongCodeS                  : String;
 
  ErrorMessage: string;
  ErrorAttrs: byte;
@@ -115,7 +77,7 @@ function Hex2(b:byte):string;
 function Hex4(w:word):string;
 
 function AsmFormat: string;         { Get string describing current CPU options }
-function LabelExist(addr: word): boolean;
+function LabelExist(addr: word): boolean; { If label exists, returns True and set LabelNo }
 
 procedure DAGoodInit;
 procedure SaveEnvir;                { Save .WRK file }
@@ -125,13 +87,46 @@ procedure MakeData(w1, w2: word);   { Mark this area as byte data }
 procedure MakeCode(w1, w2: word);   { Mark this area as code }
 procedure MakeWord(w1, w2: word);   { Mark this area as word data }
 procedure MakeAddress(w1, w2: word);
+procedure SetLabelName(ad:word; s:string);
 procedure DeleteLabel(ad: word);
 procedure MarkGreedCall(addr: word); { Mark/unmark Greed Call }
 
 
 implementation
 
+const
+  Version   : string[8] = 'v(1.12) '; {DAO version}
+  ParamS    : string[14]=('/*#?&%~^@!|"`');  { - must be last}
+  HexChar   : string[16]=('0123456789ABCDEF');
+  IndexName : array[1..2] of string[2]=('IX','IY');
+  IndexVar  : array[1..2] of string[8]=('(IX|)','(IY|)');
+{  IndexName8: array[1..2] of string[2]=('di','si');}
+  IndexVar8 : array[1..2] of string[8]=('[di|]','[si|]');
+  SegName   : array[0..1] of string[2]=('ds','cs');
+  DAAval    : array[0..1] of string[3]=('daa','das');
+  Z80SName  : array[0..1] of string[1]=('','>');
+  WrkHeader : string[16]='DA_WorkFile V1.0';
+  Format    : array[False..True] of string[5]=('8080 ','Z80  ');
+  TabSize   : byte = 10;
+  InterSize : byte = 4;
+
+  BCode     = 1;
+  BData     = 2;
+
+  LCode     = 1;
+  LData     = 2;
+  LTable    = 3;
+
 var
+ IndexNo, SegmentNo         : byte;
+ IndexOfs                   : shortint;
+ CurHeader                  : string[16];
+ ErrorLine                  : byte;
+ OldDump, sadr              : word;
+ DAttr                      : boolean;
+ IPtr                       : word;
+ ldw                        : boolean; { Flag indicating we have the .WRK file and need to load it }
+ LongCodeS                  : string;
  push1                      : byte;
  push2                      : byte;
  push3                      : byte;
@@ -1254,14 +1249,29 @@ begin
  Assign(f,FileName+'WRK'); ReWrite(f,1);
  if IOresult>0 then begin TypeError(2);Exit end;
  BlockWrite(f,WrkHeader[1], 16);
- BlockWrite(f,PrgType,14);
+ BlockWrite(f,PrgType,2);
+ BlockWrite(f,PrgStart,2);
+ BlockWrite(f,PrgBegin,2);
+ BlockWrite(f,PrgLength,2);
+ BlockWrite(f,PrgData,2);
+ BlockWrite(f,PLow,2);
+ BlockWrite(f,PHigh,2);
  BlockWrite(f,ShadowH^[PrgBegin],PrgLength);
  BlockWrite(f,ShadowL^[PrgBegin],PrgLength);
- BlockWrite(f,LabelNum,16);
- BlockWrite(f,GreedCall,20); BlockWrite(f,DumpChar,1);
+ BlockWrite(f,LabelNum,2);
+ BlockWrite(f,TinyLabels,2);
+ BlockWrite(f,MemPos,2);
+ BlockWrite(f,DumpPos,2);
+ BlockWrite(f,RealPos,2);
+ BlockWrite(f,OriginPos,2);
+ BlockWrite(f,CallerPos,2);
+ BlockWrite(f,LineNo,2);
+ BlockWrite(f,GreedCall,10*2);
+ BlockWrite(f,DumpChar,1);
  BlockWrite(f,Labels^,SizeOf(Labels^));
  BlockWrite(f,Follow,SizeOf(Follow)); BlockWrite(f,FolNum,1);
- BlockWrite(f,KeyReg,10*2); BlockWrite(f,Z80,1); BlockWrite(f,FirstZ80,1);
+ BlockWrite(f,KeyReg,10*2);
+ BlockWrite(f,Z80,1); BlockWrite(f,FirstZ80,1);
  BlockWrite(f,RealDataLoc,1);
  BlockWrite(f,Type8085,1);
  BlockWrite(f,UndoCode,1);
@@ -1280,14 +1290,29 @@ begin
  BlockRead(f, CurHeader[1], 16);
  if IOresult>0 then TypeError(6);
  if WrkHeader<>CurHeader then begin TypeError(1);Exit; end;
- BlockRead(f,PrgType,14);
+ BlockRead(f,PrgType,2);
+ BlockRead(f,PrgStart,2);
+ BlockRead(f,PrgBegin,2);
+ BlockRead(f,PrgLength,2);
+ BlockRead(f,PrgData,2);
+ BlockRead(f,PLow,2);
+ BlockRead(f,PHigh,2);
  BlockRead(f,ShadowH^[PrgBegin],PrgLength);
  BlockRead(f,ShadowL^[PrgBegin],PrgLength);
- BlockRead(f,LabelNum,16);
- BlockRead(f,GreedCall,20); BlockRead(f,DumpChar,1);
+ BlockRead(f,LabelNum,2);
+ BlockRead(f,TinyLabels,2);
+ BlockRead(f,MemPos,2);
+ BlockRead(f,DumpPos,2);
+ BlockRead(f,RealPos,2);
+ BlockRead(f,OriginPos,2);
+ BlockRead(f,CallerPos,2);
+ BlockRead(f,LineNo,2);
+ BlockRead(f,GreedCall,10*2);
+ BlockRead(f,DumpChar,1);
  BlockRead(f,Labels^,SizeOf(Labels^));
  BlockRead(f,Follow,SizeOf(Follow)); BlockRead(f,FolNum,1);
- BlockRead(f,KeyReg,10*2); BlockRead(f,Z80,1); BlockRead(f,FirstZ80,1);
+ BlockRead(f,KeyReg,10*2);
+ BlockRead(f,Z80,1); BlockRead(f,FirstZ80,1);
  if IOresult>0 then
    begin
     TypeError(4);
@@ -1336,23 +1361,6 @@ begin
                 if sadr<>100 then for sadr:=1 to 10 do if GreedCall[sadr]=$FFFF then
                   begin GreedCall[sadr]:=addr; break end;
                 (*ShowPoints;*)
-end;
-
-procedure GoUp;
-var ip:word;
-begin
- ip:=MemPos-22;
- repeat
-  if Z80 then DisAsmZ80(ip) else DisAsm8088(ip);
-  inc(ip, ILength);
- until ip>=MemPos;
- Dec(MemPos,ILength);
-end;
-
-procedure PageUp;
-var i:byte;
-begin
- for i:=1 to 14 do GoUp;
 end;
 
 {======================================================================}
@@ -1471,8 +1479,8 @@ begin
 (*         #77 : Inc(DumpPos);*)
 (*         #72 : if LineNo>1  then dec(LineNo) else GoUp;*)
 (*         #80 : if LineNo<14 then inc(LineNo) else inc(MemPos, Adds[1]);*)
-         #73 : PageUp;
-         #81 : Inc(MemPos, PageByte);
+(*         #73 : PageUp;
+         #81 : Inc(MemPos, PageByte);*)
 {F2}     #60 : begin GetLabelName(ln); if ln<>'' then SetLabelName(RealPos,ln); end;
 {F3}     #61 : begin
                 GetLabelName(ln); ln:=UpString(ln);
@@ -1528,7 +1536,7 @@ begin
                     SetTinyLabel(sadr);
                    end;
 (*{Alt +x} #45 : Halt;*)
-{Alt +B} #48 : DataBlock:=not DataBlock;
+(*{Alt +B} #48 : DataBlock:=not DataBlock;*)
 {Alt +1} #120: begin MemPos:=KeyReg[1];  LineNo:=1 end;
 {Alt +2} #121: begin MemPos:=KeyReg[2];  LineNo:=1 end;
 {Alt +3} #122: begin MemPos:=KeyReg[3];  LineNo:=1 end;
@@ -1588,8 +1596,8 @@ begin
                 sadr:=RealPos;
                 if EnterAddr(sadr) then begin MemPos:=sadr; LineNo:=1; end;
                end;*)
-{Ctrl+O} #15 : begin MemPos:=OriginPos; LineNo:=1 end;
-{Ctrl+N} #14 : OriginPos:=RealPos;
+(*{Ctrl+O} #15 : begin MemPos:=OriginPos; LineNo:=1 end;
+{Ctrl+N} #14 : OriginPos:=RealPos;*)
 {Ctrl+F} #6  : begin
                 Inc(FolNum); if FolNum>MaxFol then FolNum:=MaxFol;
                 Follow[FolNum]:=RealPos;

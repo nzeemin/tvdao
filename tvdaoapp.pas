@@ -19,18 +19,23 @@ const cmAppToolbar      = 1000;
       cmSaveWork        = 1012;
       cmImportSymbols   = 1014;
       cmSaveAsmFiles    = 1015;
-      cmPrevLine        = 1033;
-      cmNextLine        = 1034;
-      cmPrevByte        = 1035;
-      cmNextByte        = 1036;
-      cmGotoAddress     = 1037;
-      cmLxxxxLabel      = 1038;
-      cmGreedCall       = 1039;
+      cmPrevLine        = 1023;
+      cmNextLine        = 1024;
+      cmPrevPage        = 1025;
+      cmNextPage        = 1026;
+      cmPrevByte        = 1027;
+      cmNextByte        = 1028;
+      cmGotoAddress     = 1029;
+      cmLxxxxLabel      = 1030;
+      cmGreedCall       = 1031;
+      cmSetOrigin       = 1032;
+      cmGotoOrigin      = 1033;
       cmCpuTypeZ80      = 1041;
       cmCpuType8080     = 1042;
       cmCpuType8085     = 1043;
       cmUndocumCommands = 1044;
       cmDumpChar        = 1045;
+      cmDataBlock       = 1046;
 
 {---------------------------------------------------------------------------}
 
@@ -52,6 +57,8 @@ type
       procedure DoLoadWorkFile;
       procedure DoPrevLine;
       procedure DoNextLine;
+      procedure DoPrevPage;
+      procedure DoNextPage;
       procedure DoPrevByte;
       procedure DoNextByte;
       procedure DoGotoAddress;
@@ -102,6 +109,8 @@ begin
        cmLoadWork        : DoLoadWorkFile;
        cmPrevLine        : DoPrevLine;
        cmNextLine        : DoNextLine;
+       cmPrevPage        : DoPrevPage;
+       cmNextPage        : DoNextPage;
        cmPrevByte        : DoPrevByte;
        cmNextByte        : DoNextByte;
        cmGotoAddress     : DoGotoAddress;
@@ -118,6 +127,9 @@ begin
        cmCpuType8085     : begin Z80 := false; Type8085 := true; RedrawWindow; end;
        cmDumpChar        : begin DumpChar := not DumpChar; RedrawWindow; end;
        cmUndocumCommands : DoUndocumCommands;
+       cmDataBlock       : begin DataBlock := not DataBlock; RedrawWindow; end;
+       cmSetOrigin       : begin OriginPos := RealPos; RedrawWindow; end;
+       cmGotoOrigin      : begin MemPos := OriginPos; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
        cmAbout           : ShowAboutBox;
        cmHelp            : ShowHelpBox;
        Else Exit;
@@ -147,15 +159,18 @@ begin
     NewSubMenu('~N~avigation', 0, NewMenu(
       NewItem('Prev Line', 'Up', kbUp, cmPrevLine, hcNoContext,
       NewItem('Next Line', 'Down', kbDown, cmNextLine, hcNoContext,
-      NewItem('Prev Page', 'PgUp', kbPgUp, cmPrevLine, hcNoContext,
-      NewItem('Next Page', 'PgDn', kbPgDn, cmNextLine, hcNoContext,
+      NewItem('Prev Page', 'PgUp', kbPgUp, cmPrevPage, hcNoContext,
+      NewItem('Next Page', 'PgDn', kbPgDn, cmNextPage, hcNoContext,
       NewItem('Prev Byte', 'Left', kbLeft, cmPrevByte, hcNoContext,
       NewItem('Next Byte', 'Right', kbRight, cmNextByte, hcNoContext,
       NewLine(
       NewItem('~G~o to Address...', 'Ctrl+G', kbCtrlG, cmGotoAddress, hcNoContext,
-      nil))))))))),
+      NewLine(
+      NewItem('Go to ~O~rigin', 'Ctrl+O', kbCtrlO, cmGotoOrigin, hcNoContext,
+      NewItem('Set Origin', 'Ctrl+N', kbCtrlN, cmSetOrigin, hcNoContext,
+      nil)))))))))))),
     NewSubMenu('~E~dit', 0, NewMenu(
-      NewItem('Global ~L~abel Here', 'F2', kbF2, cmGlobalLabel, hcNoContext,
+      NewItem('Global ~L~abel at Cur.Pos.', 'F2', kbF2, cmGlobalLabel, hcNoContext,
       NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
       NewItem('Define ~B~yte Data Area...', 'F4', kbF4, cmMakeData, hcNoContext,
       NewItem('Define ~C~ode Area...', 'F5', kbF5, cmMakeCode, hcNoContext,
@@ -165,8 +180,8 @@ begin
       NewItem('Set/Delete Lxxxx Label', 'Ctrl+F2', kbCtrlF2, cmLxxxxLabel, hcNoContext,
       NewItem('Mark/Unmark ~G~reed Call', 'Alt+G', kbAltG, cmGreedCall, hcNoContext,
       NewLine(
-      NewItem('~S~can from Here', 'F9', kbF9, cmScan, hcNoContext,
-      NewItem('~S~can from Word Here', 'Alt+F9', kbAltF9, cmScan, hcNoContext,
+      NewItem('~S~can from Cur.Pos.', 'F9', kbF9, cmScan, hcNoContext,
+      NewItem('~S~can from Word at Cur.Pos.', 'Alt+F9', kbAltF9, cmScan, hcNoContext,
       nil))))))))))))),
     NewSubMenu('~O~ptions', 0, NewMenu(
       NewItem('CPU Type ~Z~80', '', kbNoKey, cmCpuTypeZ80, hcNoContext,
@@ -174,8 +189,9 @@ begin
       NewItem('CPU Type i808~5~', '', kbNoKey, cmCpuType8085, hcNoContext,
       NewItem('~U~ndocumented Commands', 'Alt+U', kbAltU, cmUndocumCommands, hcNoContext,
       NewLine(
+      NewItem('Toggle Data Block', 'Alt+B', kbAltB, cmDataBlock, hcNoContext,
       NewItem('Hex/~C~har Dump', '', kbNoKey, cmDumpChar, hcNoContext,
-      nil))))))),
+      nil)))))))),
     // NewSubMenu('~W~indow', 0, NewMenu(
     //   StdWindowMenuItems(Nil)),        { Standard window menu }
     NewSubMenu('~H~elp', hcNoContext, NewMenu(
@@ -353,6 +369,30 @@ begin
   RedrawWindow;
 end;
 
+procedure TTvDao.DoPrevPage;
+var IP: word; I: integer;
+begin
+  for I := 1 to 14 do begin {GoUp}
+    IP := MemPos - 22;
+    repeat
+      DisAsm(ip);
+      Inc(IP, ILength);
+    until IP >= MemPos;
+    Dec(MemPos, ILength);
+  end;
+
+  RealPos := MemPos; for I := 2 to LineNo do Inc(RealPos, Adds[I - 1]); {ShowStatus}
+
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoNextPage;
+begin
+  Inc(MemPos, PageByte);
+  RealPos := MemPos; {ShowStatus}
+  RedrawWindow;
+end;
+
 procedure TTvDao.DoPrevByte;
 begin
   Dec(DumpPos);
@@ -384,10 +424,11 @@ end;
 procedure TTvDao.DoGlobalLabel;
 var L: string;
 begin
-  {TODO: Get label for RealPos - if LabelExist(RealPos)}
   L := '';
+  if LabelExist(RealPos) then L := Labels^[LabelNo];
   if not EnterLabel(L) then exit;
-  {TODO}
+  SetLabelName(RealPos, L);
+  RedrawWindow;
 end;
 
 procedure TTvDao.DoDeleteLabel;
@@ -407,7 +448,7 @@ procedure TTvDao.DoMakeData;
 var A1,A2: word;
 begin
   A1 := RealPos; A2 := RealPos;
-  if not EnterRange(A1, A2) then exit;
+  if not EnterRange(A1, A2, 'Mark as Data block:') then exit;
   MakeData(A1, A2);
   RedrawWindow;
 end;
@@ -416,7 +457,7 @@ procedure TTvDao.DoMakeCode;
 var A1,A2: word;
 begin
   A1 := RealPos; A2 := RealPos;
-  if not EnterRange(A1, A2) then exit;
+  if not EnterRange(A1, A2, 'Mark as Code block:') then exit;
   MakeCode(A1, A2);
   RedrawWindow;
 end;
@@ -425,7 +466,7 @@ procedure TTvDao.DoMakeWord;
 var A1,A2: word;
 begin
   A1 := RealPos; A2 := RealPos;
-  if not EnterRange(A1, A2) then exit;
+  if not EnterRange(A1, A2, 'Makr as Word data:') then exit;
   MakeWord(A1, A2);
   RedrawWindow;
 end;
@@ -434,7 +475,7 @@ procedure TTvDao.DoMakeAddress;
 var A1,A2: word;
 begin
   A1 := RealPos; A2 := RealPos;
-  if not EnterRange(A1, A2) then exit;
+  if not EnterRange(A1, A2, 'Mark as Address data:') then exit;
   MakeAddress(A1, A2);
   RedrawWindow;
 end;

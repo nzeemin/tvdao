@@ -4,7 +4,7 @@ interface
 
 function EnterAddr(var A: word): boolean;
 
-function EnterRange(var A1, A2: word): boolean;
+function EnterRange(var A1, A2: word; Prompt: string): boolean;
 
 function EnterLabel(var L: string): boolean;
 
@@ -34,7 +34,7 @@ type
   PTvDaoEnterRangeDialog = ^TTvDaoEnterRangeDialog;
   TTvDaoEnterRangeDialog = object(TDialog)
     EditFrom,EditTo,EditLen: PHex4InputLine;
-    constructor Init(R: TRect);
+    constructor Init(R: TRect; Prompt: string);
   end;
 
   TEnterRangeData = record
@@ -119,28 +119,31 @@ end;
 
 {---------------------------------------------------------------------------}
 
-constructor TTvDaoEnterRangeDialog.Init(R: TRect);
+constructor TTvDaoEnterRangeDialog.Init(R: TRect; Prompt: string);
 begin
   inherited Init(R, 'Enter Range');
+
+  R.Assign(4, 2, 25, 3);
+  Insert(New(PStaticText, Init(R, Prompt)));
 
   R.Assign(4, 7, 14, 9);
   Insert(New(PButton, Init(R, '~O~K', cmOK, bfDefault)));
   R.Assign(15, 7, 26, 9);
   Insert(new(PButton, Init(R, '~C~ancel', cmCancel, bfNormal)));
-  R.Assign(15, 2, 22, 3);
+  R.Assign(15, 3, 22, 4);
   EditFrom := New(PHex4InputLine, Init(R));
   Insert(EditFrom);
-  R.Assign(3, 2, 12, 3);
+  R.Assign(3, 3, 12, 4);
   Insert(New(PLabel, Init(R, '~F~rom:', EditFrom)));
-  R.Assign(15, 3, 22, 4);
+  R.Assign(15, 4, 22, 5);
   EditTo := New(PHex4InputLine, Init(R));
   Insert(EditTo);
-  R.Assign(3, 3, 12, 4);
+  R.Assign(3, 4, 12, 5);
   Insert(New(PLabel, Init(R, '~T~o:', EditTo)));
-  R.Assign(15, 4, 22, 5);
+  R.Assign(15, 5, 22, 6);
   EditLen := New(PHex4InputLine, Init(R));
   Insert(EditLen);
-  R.Assign(3, 4, 12, 5);
+  R.Assign(3, 5, 12, 6);
   Insert(New(PLabel, Init(R, '~L~ength:', EditLen)));
 end;
 
@@ -178,12 +181,12 @@ begin
   EnterAddr := Res = cmOK;
 end;
 
-function EnterRange(var A1, A2: word): boolean;
+function EnterRange(var A1, A2: word; Prompt: string): boolean;
 var D: PTvDaoEnterRangeDialog; R: TRect; Data: TEnterRangeData; Res: word;
 begin
   Desktop^.GetExtent(R);
   R.Assign(60, R.A.X + 1, 60 + 30, R.A.X + 11);
-  D := New(PTvDaoEnterRangeDialog, Init(R));
+  D := New(PTvDaoEnterRangeDialog, Init(R, Prompt));
   Data.A1 := A1;
   Data.A2 := A2;
   Data.A3 := A2 - A1 + 1;
