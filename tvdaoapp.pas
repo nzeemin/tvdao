@@ -11,27 +11,31 @@ const cmAppToolbar      = 1000;
       cmReloc           = 1003;
       cmMakeData        = 1004;
       cmMakeCode        = 1005;
-      cmWord            = 1006;
-      cmAddress         = 1007;
-      cmDelete          = 1008;
+      cmMakeWord        = 1006;
+      cmMakeAddress     = 1007;
+      cmDeleteLabel     = 1008;
       cmScan            = 1010;
       cmLoadWork        = 1011;
       cmSaveWork        = 1012;
-      cmPrevLine        = 1013;
-      cmNextLine        = 1014;
-      cmGotoAddress     = 1015;
-      cmLxxxxLabel      = 1016;
-      cmCpuTypeZ80      = 1021;
-      cmCpuType8080     = 1022;
-      cmCpuType8085     = 1023;
-      cmUndocumCommands = 1024;
-      cmDumpChar        = 1025;
+      cmImportSymbols   = 1014;
+      cmSaveAsmFiles    = 1015;
+      cmPrevLine        = 1033;
+      cmNextLine        = 1034;
+      cmPrevByte        = 1035;
+      cmNextByte        = 1036;
+      cmGotoAddress     = 1037;
+      cmLxxxxLabel      = 1038;
+      cmGreedCall       = 1039;
+      cmCpuTypeZ80      = 1041;
+      cmCpuType8080     = 1042;
+      cmCpuType8085     = 1043;
+      cmUndocumCommands = 1044;
+      cmDumpChar        = 1045;
 
 {---------------------------------------------------------------------------}
 
 type
    PTvDao = ^TTvDao;
-
    TTvDao = OBJECT (TApplication)
         P1,P2,P3: PGroup;
       CONSTRUCTOR Init;
@@ -48,11 +52,17 @@ type
       procedure DoLoadWorkFile;
       procedure DoPrevLine;
       procedure DoNextLine;
+      procedure DoPrevByte;
+      procedure DoNextByte;
       procedure DoGotoAddress;
       procedure DoMakeData;
       procedure DoMakeCode;
+      procedure DoMakeWord;
+      procedure DoMakeAddress;
       procedure DoLxxxxLabel;
       procedure DoGlobalLabel;
+      procedure DoDeleteLabel;
+      procedure DoGreedCall;
     private
       Heap: PHeapView;
       procedure DoUndocumCommands;
@@ -92,10 +102,16 @@ begin
        cmLoadWork        : DoLoadWorkFile;
        cmPrevLine        : DoPrevLine;
        cmNextLine        : DoNextLine;
+       cmPrevByte        : DoPrevByte;
+       cmNextByte        : DoNextByte;
        cmGotoAddress     : DoGotoAddress;
        cmMakeData        : DoMakeData;
        cmMakeCode        : DoMakeCode;
+       cmMakeWord        : DoMakeWord;
+       cmMakeAddress     : DoMakeAddress;
        cmGlobalLabel     : DoGlobalLabel;
+       cmDeleteLabel     : DoDeleteLabel;
+       cmGreedCall       : DoGreedCall;
        cmLxxxxLabel      : DoLxxxxLabel;
        cmCpuTypeZ80      : begin Z80 := true; RedrawWindow; end;
        cmCpuType8080     : begin Z80 := false; Type8085 := false; RedrawWindow; end;
@@ -114,7 +130,6 @@ procedure TTvDao.InitMenuBar;
 var R: TRect; PS: PStaticText; V: string;
 begin
   V := '  ' + VersionStr + '  ';
-
   GetExtent(R);   { Get view extents }
   R.B.Y := R.A.Y + 1;  { One line high  }
   R.A.X := R.A.X + Length(V);
@@ -123,31 +138,44 @@ begin
       NewItem('~L~oad WRK file', 'Alt+W', kbAltW, cmLoadWork, hcNoContext,
       NewItem('~S~ave WRK file', 'Alt+Q', kbAltQ, cmSaveWork, hcNoContext,
       NewLine(
+      NewItem('~I~mport .SYM .CTL Files', 'Alt+I', kbAltI, cmImportSymbols, hcNoContext,
+      NewLine(
+      NewItem('Save ~A~SM Files', 'Ctrl+F9', kbCtrlF9, cmSaveAsmFiles, hcNoContext,
+      NewLine(
       NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext,
-      nil))))),
+      nil))))))))),
     NewSubMenu('~N~avigation', 0, NewMenu(
       NewItem('Prev Line', 'Up', kbUp, cmPrevLine, hcNoContext,
       NewItem('Next Line', 'Down', kbDown, cmNextLine, hcNoContext,
-      NewItem('Go to Address...', 'Ctrl+G', kbCtrlG, cmGotoAddress, hcNoContext,
-      nil)))),
+      NewItem('Prev Page', 'PgUp', kbPgUp, cmPrevLine, hcNoContext,
+      NewItem('Next Page', 'PgDn', kbPgDn, cmNextLine, hcNoContext,
+      NewItem('Prev Byte', 'Left', kbLeft, cmPrevByte, hcNoContext,
+      NewItem('Next Byte', 'Right', kbRight, cmNextByte, hcNoContext,
+      NewLine(
+      NewItem('~G~o to Address...', 'Ctrl+G', kbCtrlG, cmGotoAddress, hcNoContext,
+      nil))))))))),
     NewSubMenu('~E~dit', 0, NewMenu(
       NewItem('Global ~L~abel Here', 'F2', kbF2, cmGlobalLabel, hcNoContext,
       NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
-      NewItem('Define Byte Data Area...', 'F4', kbF4, cmMakeData, hcNoContext,
+      NewItem('Define ~B~yte Data Area...', 'F4', kbF4, cmMakeData, hcNoContext,
       NewItem('Define ~C~ode Area...', 'F5', kbF5, cmMakeCode, hcNoContext,
-      NewItem('Define Word Data Area...', 'F6', kbF6, cmWord, hcNoContext,
-      NewItem('Define Offset Table', 'F7', kbF7, cmMakeData, hcNoContext,
-      NewItem('Delete Label', 'F8', kbF8, cmMakeData, hcNoContext,
-      NewItem('~S~can from Here', 'F9', kbF9, cmScan, hcNoContext,
+      NewItem('Define ~W~ord Data Area...', 'F6', kbF6, cmMakeWord, hcNoContext,
+      NewItem('Define Offset ~T~able...', 'F7', kbF7, cmMakeAddress, hcNoContext,
+      NewItem('~D~elete Label', 'F8', kbF8, cmDeleteLabel, hcNoContext,
       NewItem('Set/Delete Lxxxx Label', 'Ctrl+F2', kbCtrlF2, cmLxxxxLabel, hcNoContext,
-      nil)))))))))),
+      NewItem('Mark/Unmark ~G~reed Call', 'Alt+G', kbAltG, cmGreedCall, hcNoContext,
+      NewLine(
+      NewItem('~S~can from Here', 'F9', kbF9, cmScan, hcNoContext,
+      NewItem('~S~can from Word Here', 'Alt+F9', kbAltF9, cmScan, hcNoContext,
+      nil))))))))))))),
     NewSubMenu('~O~ptions', 0, NewMenu(
       NewItem('CPU Type ~Z~80', '', kbNoKey, cmCpuTypeZ80, hcNoContext,
       NewItem('CPU Type i~8~080', '', kbNoKey, cmCpuType8080, hcNoContext,
       NewItem('CPU Type i808~5~', '', kbNoKey, cmCpuType8085, hcNoContext,
       NewItem('~U~ndocumented Commands', 'Alt+U', kbAltU, cmUndocumCommands, hcNoContext,
+      NewLine(
       NewItem('Hex/~C~har Dump', '', kbNoKey, cmDumpChar, hcNoContext,
-      nil)))))),
+      nil))))))),
     // NewSubMenu('~W~indow', 0, NewMenu(
     //   StdWindowMenuItems(Nil)),        { Standard window menu }
     NewSubMenu('~H~elp', hcNoContext, NewMenu(
@@ -188,9 +216,9 @@ begin
         NewStatusKey('~F3~ Reloc', kbF3, cmReloc,
         NewStatusKey('~F4~ Data', kbF4, cmMakeData,
         NewStatusKey('~F5~ Code', kbF5, cmMakeCode,
-        NewStatusKey('~F6~ Word', kbF6, cmWord,
-        NewStatusKey('~F7~ Address', kbF7, cmAddress,
-        NewStatusKey('~F8~ Delete', kbF8, cmDelete,
+        NewStatusKey('~F6~ Word', kbF6, cmMakeWord,
+        NewStatusKey('~F7~ Address', kbF7, cmMakeAddress,
+        NewStatusKey('~F8~ Delete', kbF8, cmDeleteLabel,
         NewStatusKey('~F9~ Scan', kbF9, cmScan,
         NewStatusKey('~Alt+X~ Exit', kbAltX, cmQuit,
         //StdStatusKeys(nil
@@ -325,6 +353,18 @@ begin
   RedrawWindow;
 end;
 
+procedure TTvDao.DoPrevByte;
+begin
+  Dec(DumpPos);
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoNextByte;
+begin
+  Inc(DumpPos);
+  RedrawWindow;
+end;
+
 procedure TTvDao.DoGotoAddress;
 var Addr: word;
 begin
@@ -344,10 +384,23 @@ end;
 procedure TTvDao.DoGlobalLabel;
 var L: string;
 begin
-  {TODO: Get label for RealPos}
+  {TODO: Get label for RealPos - if LabelExist(RealPos)}
   L := '';
   if not EnterLabel(L) then exit;
   {TODO}
+end;
+
+procedure TTvDao.DoDeleteLabel;
+begin
+  if not LabelExist(RealPos) then exit;
+  DeleteLabel(RealPos);
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoGreedCall;
+begin
+  MarkGreedCall(RealPos);
+  RedrawWindow;
 end;
 
 procedure TTvDao.DoMakeData;
@@ -365,6 +418,24 @@ begin
   A1 := RealPos; A2 := RealPos;
   if not EnterRange(A1, A2) then exit;
   MakeCode(A1, A2);
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoMakeWord;
+var A1,A2: word;
+begin
+  A1 := RealPos; A2 := RealPos;
+  if not EnterRange(A1, A2) then exit;
+  MakeWord(A1, A2);
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoMakeAddress;
+var A1,A2: word;
+begin
+  A1 := RealPos; A2 := RealPos;
+  if not EnterRange(A1, A2) then exit;
+  MakeAddress(A1, A2);
   RedrawWindow;
 end;
 

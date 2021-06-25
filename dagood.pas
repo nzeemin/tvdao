@@ -114,14 +114,19 @@ var
 function Hex2(b:byte):string;
 function Hex4(w:word):string;
 
-function AsmFormat: string;
+function AsmFormat: string;         { Get string describing current CPU options }
+function LabelExist(addr: word): boolean;
 
 procedure DAGoodInit;
-procedure SaveEnvir;
-procedure LoadEnvir;
+procedure SaveEnvir;                { Save .WRK file }
+procedure LoadEnvir;                { Load .WRK file }
 function DisAsm(addr: word): string; { Disasm using the current CPU options }
-procedure MakeData(w1, w2: word); { Mark this area as byte data }
-procedure MakeCode(w1, w2: word); { Mark this area as code }
+procedure MakeData(w1, w2: word);   { Mark this area as byte data }
+procedure MakeCode(w1, w2: word);   { Mark this area as code }
+procedure MakeWord(w1, w2: word);   { Mark this area as word data }
+procedure MakeAddress(w1, w2: word);
+procedure DeleteLabel(ad: word);
+procedure MarkGreedCall(addr: word); { Mark/unmark Greed Call }
 
 
 implementation
@@ -138,8 +143,6 @@ var
 function ReadKey: char; {STUB for Crt}
 begin end;
 function KeyPressed: boolean; {STUB for Crt}
-begin end;
-procedure GotoXY(X: integer; Y: integer); {STUB for Crt}
 begin end;
 function WhereX: integer; {STUB for Crt}
 begin end;
@@ -245,6 +248,30 @@ end;
 procedure Replace(var Dest:string;Source:string;p:byte);
 begin
  Delete(Dest,p,1); Insert(Source, Dest, p);
+end;
+
+function UpString(s:string):string;
+var i:byte;
+begin
+ UpString:=s;
+ for i:=1 to Length(s) do UpString[i]:=UpCase(s[i]);
+end;
+
+function CutString(var d:word;var s:string):boolean;
+var i:integer;ls:string;
+begin
+ ls:='XXXX';for i:=1 to 4 do ls[i]:=s[i];
+ Delete(s, 1, 5); Val('$'+ls,d,i);
+ if i>0 then CutString:=False else CutString:=True;
+end;
+
+function AsmFormat: string;
+var Fmt: string;
+begin
+  if Type8085 then Format[False] := '8085' else Format[False] := '8080';
+  Fmt := Format[Z80];
+  if (not Z80) and (UndoCode) then Fmt := Fmt + '+' else Fmt := Fmt + ' ';
+  AsmFormat := Fmt;
 end;
 
 function LabelExist(addr:word):boolean;
@@ -676,6 +703,8 @@ begin
   if Z80 then DisAsm := DisAsmZ80(addr) else DisAsm := DisAsm8088(addr);
 end;
 
+{======================================================================}
+
 procedure SetTinyLabel(addr:word);{1-code, 2-data, 3-table }
 var l:word;
 begin
@@ -829,6 +858,8 @@ begin
  WriteTo(Strng(15,'อ'),60,16,$3F);
 end;
 
+{======================================================================}
+
 procedure TypeError(No:word);
 var attr:byte;
 begin
@@ -866,15 +897,6 @@ begin
   107: SetError('Comment Z80 code ON', $1B);
  end;
  ErrorLine:=7;
-end;
-
-function AsmFormat: string;
-var Fmt: string;
-begin
-  if Type8085 then Format[False] := '8085' else Format[False] := '8080';
-  Fmt := Format[Z80];
-  if (not Z80) and (UndoCode) then Fmt := Fmt + '+' else Fmt := Fmt + ' ';
-  AsmFormat := Fmt;
 end;
 
 procedure LoadFile;
@@ -945,100 +967,6 @@ begin
  if IOresult>0 then ;
 end;
 
-function EnterRange(var r1,r2:word):boolean;
-var ch:char;c,p:byte; t:word;ox,oy:byte;i:integer;
-s:array[1..3] of string;
-d:array[1..3] of word;
-procedure Restore;var i:byte;
-begin
- for i:=0 to 3 do WriteTo(Space(15), 50, 6+i,$33);
- GotoXY(ox, oy);
-end;
-begin
- ox:=WhereX; oy:=WhereY;
- WriteTo('< Enter range >', 50, 6, $3E);
- c:=1;p:=1;d[1]:=r1;d[2]:=r2;
- repeat
-  d[3]:=d[2]-d[1]+1;
-  WriteTo(' From : '+Hex4(d[1])+' ', 51, 7, $1F);
-  WriteTo(' To   : '+Hex4(d[2])+' ', 51, 8, $1F);
-  WriteTo(' Len  : '+Hex4(d[3])+' ', 51, 9, $1F);
-  GotoXY(59+p, 7+c);
-  ch:=ReadKey;
-  case ch of
-   #0 : case ReadKey of
-         #77 : if p<4 then Inc(p);
-         #75 : if p>1 then Dec(p);
-         #72 : if c>1 then Dec(c) else c:=3;
-         #80 : if c<3 then Inc(c) else c:=1;
-        end;
-   '0'..'9','A'..'F','a'..'f' :
-         begin
-          s[1]:=Hex4(d[1]);s[2]:=Hex4(d[2]);s[3]:=Hex4(d[3]);
-          s[c][p]:=ch; if p<4 then Inc(p);
-          Val('$'+s[c], t, i);
-          case c of
-           1, 2 : d[c]:=t;
-           3 : d[2]:=d[1]+t-1;
-          end;
-         end;
-   #27 : begin
-          Restore;
-          EnterRange:=False;
-          Exit
-         end;
-   #13 : begin
-          Restore;
-          r1:=d[1];r2:=d[2];
-          EnterRange:=True;
-          Exit;
-         end;
-  end;
- until False;
-end;
-
-function EnterAddr(var r:word):boolean;
-var ch:char;c,p:byte; t:word;ox,oy:byte;i:integer;
-s:string;d:word;
-procedure Restore;var i:byte;
-begin
- for i:=0 to 3 do WriteTo(Space(15), 50, 6+i,$33);
- GotoXY(ox, oy);
-end;
-begin
- ox:=WhereX; oy:=WhereY;
- WriteTo('< Enter addr >', 50, 6, $3E);
- c:=1;p:=1;d:=r;
- repeat
-  WriteTo(' Addr : '+Hex4(d)+' ', 51, 7, $1F);
-  GotoXY(59+p, 7+c);
-  ch:=ReadKey;
-  case ch of
-   #0 : case ReadKey of
-         #77 : if p<4 then Inc(p);
-         #75 : if p>1 then Dec(p);
-        end;
-   '+' : Inc(d);
-   '-' : Dec(d);
-   '0'..'9','A'..'F','a'..'f' :
-         begin
-          s:=Hex4(d);
-          s[p]:=ch; if p<4 then Inc(p);
-          Val('$'+s, t, i);
-          d:=t;
-         end;
-   #27 : begin
-          Restore; EnterAddr:=False;
-          Exit
-         end;
-   #13 : begin
-          Restore; r:=d; EnterAddr:=True;
-          Exit;
-         end;
-  end;
- until False;
-end;
-
 procedure MakeCode(w1, w2: word);
 var (*w1, w2:word;*) i:longint;
 begin
@@ -1057,20 +985,20 @@ begin
   ShadowH^[w1+i]:=$40 or (ShadowH^[w1+i] and $3F);
 end;
 
-procedure MakeWord;
-var w1, w2:word;i:longint;
+procedure MakeWord(w1, w2: word);
+var (*w1, w2:word;*) i:longint;
 begin
- w1:=RealPos; w2:=RealPos;
- if not EnterRange(w1, w2) then Exit;
+(* w1:=RealPos; w2:=RealPos;
+ if not EnterRange(w1, w2) then Exit;*)
  for i:=0 to (w2-w1) do
   ShadowH^[w1+i]:=$80 or (ShadowH^[w1+i] and $3F);
 end;
 
-procedure MakeAddress;
-var w1, w2:word;i:longint;
+procedure MakeAddress(w1, w2: word);
+var (*w1, w2:word;*) i:longint;
 begin
- w1:=RealPos; w2:=RealPos;
- if not EnterRange(w1, w2) then Exit;
+(* w1:=RealPos; w2:=RealPos;
+ if not EnterRange(w1, w2) then Exit;*)
  for i:=0 to (w2-w1) do
   ShadowH^[w1+i]:=$80 or (ShadowH^[w1+i] and $3F);
 end;
@@ -1131,16 +1059,6 @@ begin
  FindString:=s; FControl:=c;
  if Tab then FindPos:=RealPos else FindPos:=PrgBegin;
  ContinueSearch;
-end;
-
-function GetGameID:string;
-var s:string;
-begin
- if Length(FileName)<5
-    then s:=Copy(FileName,1,Length(FileName)-1)
-    else s:=Copy(FileName,1,4);
- while Length(s)<4 do s:=s+'_';
- GetGameID:=s
 end;
 
 Procedure OutToFile(var T : Text; var S : string);
@@ -1227,21 +1145,6 @@ ProcExit:
  Close(t);
 end;
 
-function UpString(s:string):string;
-var i:byte;
-begin
- UpString:=s;
- for i:=1 to Length(s) do UpString[i]:=UpCase(s[i]);
-end;
-
-function CutString(var d:word;var s:string):boolean;
-var i:integer;ls:string;
-begin
- ls:='XXXX';for i:=1 to 4 do ls[i]:=s[i];
- Delete(s, 1, 5); Val('$'+ls,d,i);
- if i>0 then CutString:=False else CutString:=True;
-end;
-
 procedure SetLabelName(ad:word;s:string);
 var i:integer;ls,orls:string;Ln:word;
 begin
@@ -1302,49 +1205,8 @@ Exit:
 end;
 
 procedure GetLabelName(var ln:string);
-var ox,oy,p:byte;s:string;ch:char;l:word;
 begin
- WriteTo('[ Real address : '+Hex4(RealPos)+' ]', 3, 1, $3F);
- ox:=WhereX; oy:=WhereY; s:=Space(8); p:=1;
- l:=(ShadowH^[RealPos] and $7) shl 8+ShadowL^[RealPos];
- if l>0 then s:=Labels^[l];
- repeat
-  WriteTo(s, 2, LineNo+1, $1F);
-  GotoXY(2+p, LineNo+2);
-  ch:=ReadKey;
-  case ch of
-   #0  : case ReadKey of
-          #75 : if p>1 then Dec(p);
-          #77 : if p<9 then Inc(p);
-          #83 : begin Delete(s, p, 1); s:=s+' '; end;
-         end;
-   'A'..'Z', 'a'..'z', '_','+','-'
-       : if p<9 then
-         begin
-          Delete(s, 8, 1);
-          Insert(ch, s, p); Inc(p);
-         end;
-   '0'..'9' : if (p>1) and (p<9) then
-         begin
-          Delete(s, 8, 1);
-          Insert(ch, s, p); Inc(p);
-         end;
-   #8  : if p>1 then begin Dec(p); Delete(s, p, 1); s:=s+' ' end;
-   #27 : begin
-          GotoXY(ox, oy);
-          WriteTo(Strng(24,'อ'), 3, 1, $3F);
-          ln:='';
-          Exit;
-         end;
-   ':',#13 : begin
-              GotoXY(ox, oy);
-              WriteTo(Strng(24,'อ'), 3, 1, $3F);
-              ln:=s;
-              Exit;
-             end;
-  end;
- until False;
- GotoXY(ox, oy);
+{TODO: remove}
 end;
 
 procedure InitAllVars;
@@ -1360,20 +1222,31 @@ begin
  LabelNum:=0;
  SetLabelName(PrgBegin,'ModBegin');
  SetLabelName(PrgStart,'ModStart');
- MemPos:=PrgStart;DumpPos:=MemPos; OldDump:=DumpPos+1;
+ MemPos:=PrgStart; DumpPos:=MemPos; OldDump:=DumpPos+1;
  RealPos:=MemPos;
  ErrorLine:=0; DAttr:=True; {Z80:=True; MYCOR}
  for i:=1 to 10 do KeyReg[i]:=PrgStart;
  CharDec:=0; DumpChar:=False;
 end;
 
-procedure ShowPoints;
-//var i:byte;
+procedure DAGoodInit;
 begin
-(* for i:=1 to 10 do
-   WriteTo(Hex4(GreedCall[i]),50+((i-1) mod 5)*5,11+(i-1) div 5,$30);
- for i:=1 to 10 do
-   WriteTo(Hex4(KeyReg[i]),50+((i-1) mod 5)*5,14+(i-1) div 5,$30);*)
+  GetMem(PrgMem, 65535);  FillChar(PrgMem^, 65535, 0);
+  GetMem(ShadowH, 65535); FillChar(ShadowH^, 65535, $40);
+  GetMem(ShadowL, 65535); FillChar(ShadowL^, 65535, $00);
+  New(Labels); FillChar(Labels^, SizeOf(Labels^), 0);
+
+  LoadFile;
+  InitAllVars;
+
+  if ldw then LoadEnvir;
+end;
+
+{TODO: procedure DAGoodDone}
+
+procedure ShowPoints;
+begin
+{TODO: remove}
 end;
 
 procedure SaveEnvir;
@@ -1419,7 +1292,7 @@ begin
    begin
     TypeError(4);
     InitAllVars;
-    ShowPoints;
+    (*ShowPoints;*)
     Exit;
    end;
  BlockRead(f,RealDataLoc,1); inOutRes := 0;
@@ -1436,16 +1309,6 @@ begin
  TypeError(41);
 end;
 
-procedure ShowDump;
-begin
-{TODO: remove}
-end;
-
-procedure ShowList;
-begin
-{TODO: remove}
-end;
-
 procedure DeleteLabel(ad:word);
 var i:integer;l:word;
 begin
@@ -1460,6 +1323,19 @@ begin
     if Labels^[i]<>'' then break;
     Dec(LabelNum);
    end;
+end;
+
+procedure MarkGreedCall(addr:word);
+begin
+                sadr:=1;
+                while sadr <= 10 do begin
+                  if GreedCall[sadr]=addr
+                    then begin GreedCall[sadr]:=$FFFF;sadr:=100;break end;
+                  sadr:=sadr+1;
+                end;
+                if sadr<>100 then for sadr:=1 to 10 do if GreedCall[sadr]=$FFFF then
+                  begin GreedCall[sadr]:=addr; break end;
+                (*ShowPoints;*)
 end;
 
 procedure GoUp;
@@ -1479,19 +1355,7 @@ begin
  for i:=1 to 14 do GoUp;
 end;
 
-procedure ShowStatus;
-var i:byte;s:string;
-begin
- RealPos:=MemPos;
- for i:=2 to LineNo do Inc(RealPos,Adds[i-1]);
- WriteTo(Hex4(RealPos), 68, 2, $30);
- if (RealPos>=PrgBegin) and (RealPos<=PrgBegin+PrgLength) then
-   begin
-    i:=(RealPos-PrgBegin) div (PrgLength div 100);
-    Str(i:3,s); WriteTo(s+'%',73,2,$30);
-   end else WriteTo(' Out ',73,2,$30);
- WriteTo('Labels:'+SStr(LabelNum,4),51,3,$30);
-end;
+{======================================================================}
 
 procedure PutPixel(x,y:integer;Col:byte); {TODO}
 begin
@@ -1586,23 +1450,10 @@ begin
 (* ScrBuf:=OldScr;*)
 end;
 
+{======================================================================}
+
 var ln:string;
     i:word;
-
-procedure DAGoodInit;
-begin
-  GetMem(PrgMem, 65535);  FillChar(PrgMem^, 65535, 0);
-  GetMem(ShadowH, 65535); FillChar(ShadowH^, 65535, $40);
-  GetMem(ShadowL, 65535); FillChar(ShadowL^, 65535, $00);
-  New(Labels); FillChar(Labels^, SizeOf(Labels^), 0);
-
-  LoadFile;
-  InitAllVars;
-
-  if ldw then LoadEnvir;
-end;
-
-{TODO: procedure DAGoodDone}
 
 procedure StartUp;
 begin
@@ -1616,10 +1467,10 @@ begin
   case ReadKey of
    #0 : case ReadKey of
 {F1}     (* #59 : ShowKeyboardHelp;*)
-         #75 : Dec(DumpPos);
-         #77 : Inc(DumpPos);
-         #72 : if LineNo>1  then dec(LineNo) else GoUp;
-         (*#80 : if LineNo<14 then inc(LineNo) else inc(MemPos, Adds[1]);*)
+(*         #75 : Dec(DumpPos);*)
+(*         #77 : Inc(DumpPos);*)
+(*         #72 : if LineNo>1  then dec(LineNo) else GoUp;*)
+(*         #80 : if LineNo<14 then inc(LineNo) else inc(MemPos, Adds[1]);*)
          #73 : PageUp;
          #81 : Inc(MemPos, PageByte);
 {F2}     #60 : begin GetLabelName(ln); if ln<>'' then SetLabelName(RealPos,ln); end;
@@ -1637,9 +1488,9 @@ begin
                end;
 (*{F4}     #62 : MakeData;*)
 (*{F5}     #63 : MakeCode;*)
-{F6}     #64 : MakeWord;
-{F7}     #65 : MakeAddress;
-{F8}     #66 : DeleteLabel(RealPos);
+(*{F6}     #64 : MakeWord;*)
+(*{F7}     #65 : MakeAddress;*)
+(*{F8}     #66 : DeleteLabel(RealPos);*)
 {F9}     #67 : Scan(RealPos);
 {Alt+ F9}#112: begin                  {if code}
                 if ShadowH^[RealPos] and $C0=0 then
@@ -1711,18 +1562,8 @@ begin
 {Alt +S} #31 : ShadowH^[RealPos]:=ShadowH^[RealPos] xor $20;
 {Alt +I} #23 : ImportSymbols;
 {Alt +D} #32 : DumpPos:=RealPos;
-{Alt +G} #34 : begin
-                sadr:=1;
-                while sadr <= 10 do begin
-                  if GreedCall[sadr]=RealPos
-                    then begin GreedCall[sadr]:=$FFFF;sadr:=100;break end;
-                  sadr:=sadr+1;
-                end;
-                if sadr<>100 then for sadr:=1 to 10 do if GreedCall[sadr]=$FFFF then
-                  begin GreedCall[sadr]:=RealPos; break end;
-                ShowPoints;
-               end;
-        end;
+(*{Alt +G} #34 : MarkGreedCall(RealPos);*)
+        end; {case of}
 {อออออออออ end of doublecoded chars อออออออออ}
 {Ctrl+D} #4  : begin
                 for sadr:=RealPos+1 to PrgBegin+PrgLength do
@@ -1736,17 +1577,17 @@ begin
                     if Pos('offset', DisAsmZ80(sadr)) > 0 then break;
                 if sadr<PrgBegin+PrgLength then begin MemPos:=sadr; LineNo:=1 end;
                end;
-{Ctrl+C} #3  : DumpChar:=not DumpChar;
+(*{Ctrl+C} #3  : DumpChar:=not DumpChar;*)
 {Ctrl+A} #1  : begin
                 for sadr:=RealPos+1 to PrgBegin+PrgLength do
                   if (ShadowH^[sadr] and $20>0) then break;
                 if sadr<PrgBegin+PrgLength then begin MemPos:=sadr;LineNo:=1 end
                    else TypeError(33);
                end;
-{Ctrl+G} #7  : begin
+(*{Ctrl+G} #7  : begin
                 sadr:=RealPos;
                 if EnterAddr(sadr) then begin MemPos:=sadr; LineNo:=1; end;
-               end;
+               end;*)
 {Ctrl+O} #15 : begin MemPos:=OriginPos; LineNo:=1 end;
 {Ctrl+N} #14 : OriginPos:=RealPos;
 {Ctrl+F} #6  : begin

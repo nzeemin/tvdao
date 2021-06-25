@@ -167,7 +167,7 @@ end;
 {---------------------------------------------------------------------------}
 
 procedure TTvDaoMemoryView.Draw;
-var B: TDrawBuffer; I,J: integer; IP: word; S, SC: string;
+var B: TDrawBuffer; I,J,JH: integer; IP: word; S,SC,SH: string; C: char;
 begin
   inherited Draw;
 
@@ -176,24 +176,37 @@ begin
 
   IP := DumpPos;
   for I := 0 to Size.Y - 1 do begin
-    S := Hex4(IP) + ':'; SC := '';
+    S := Hex4(IP) + ':'; SC := ''; SH := '';
     if DumpChar then begin
       S := S + '  ';
       for J := 0 to 47 do begin
-        S := S + Chr(PrgMem^[IP]);
+        C := Chr(PrgMem^[IP]);
+        S := S + C;
+	if IP = RealPos then begin SH := C; JH := J; end;
         Inc(IP);
+      end;
+      MoveStr(B, S, GetColor(1));
+      WriteLine(1, I + 1, Length(S), 1, B);
+      if Length(SH) > 0 then begin
+        MoveStr(B, SH, $97);
+        WriteLine(8 + JH, I + 1, 1, 1, B);
       end;
     end else begin
       for J := 0 to 15 do begin
         S := S + ' ' + Hex2(PrgMem^[IP]);
         SC := SC + Chr(PrgMem^[IP]);
+	if IP = RealPos then begin SH := Hex2(PrgMem^[IP]); JH := J; end;
         Inc(IP);
       end;
       MoveStr(B, SC, GetColor(1));
       WriteLine(56, I + 1, Length(SC), 1, B);
+      MoveStr(B, S, GetColor(1));
+      WriteLine(1, I + 1, Length(S), 1, B);
+      if Length(SH) > 0 then begin
+        MoveStr(B, SH, $97);
+        WriteLine(7 + JH * 3, I + 1, 2, 1, B);
+      end;
     end;
-    MoveStr(B, S, GetColor(1));
-    WriteLine(1, I + 1, Length(S), 1, B);
   end;
 end;
 
