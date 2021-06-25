@@ -89,10 +89,6 @@ begin
   MoveChar(B, #196, GetColor(1), Size.X);
   WriteLine(1, 6, Size.X - 1, 1, B);
 
-//   MoveStr(B, 'Source file:', GetColor(1));
-//   WriteLine(2, 0, 12, 1, B);
-//   MoveStr(B, ParamStr(1), GetColor(2));
-//   WriteLine(20, 0, Length(ParamStr(1)), 1, B);
   MoveStr(B, 'Init Address:', GetColor(1));
   WriteLine(2, 0, 13, 1, B);
   MoveStr(B, Hex4(PrgStart), GetColor(2));
@@ -154,12 +150,15 @@ begin
 
   IP := MemPos; PageByte := 0;
   for I := 1 to 14 do begin
+    MoveStr(B, Hex4(IP) + ':', GetColor(1));
+    WriteLine(1, I - 1, 5, 1, B); { Show address for the line }
+
     if I = LineNo then Attr := $97 else Attr := GetColor(1);
     S := DisAsm(IP);
     if IP = OriginPos then S := Chr(16) + S else S := ' ' + S;
     if (ShadowH^[IP] and $20 <> 0) and (ShadowH^[ip] shr 6 <> 0) then S[11] := #240;
     MoveStr(B, S, Attr);
-    WriteLine(1, I - 1, Length(S), 1, B);
+    WriteLine(7, I - 1, Length(S), 1, B);
     if not LongCode then begin
       Inc(IP, ILength); Inc(PageByte, ILength);
       Adds[i] := ILength;

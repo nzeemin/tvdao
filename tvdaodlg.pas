@@ -62,7 +62,7 @@ function ParseHex4(S: string): word;
 var Res: word; I: integer; C: char;
 begin
   Res := 0;
-  for I := 1 to Length(S) - 1 do begin
+  for I := 1 to Length(S) do begin
     Res := Res shl 4;
     C := S[I];
     if (C >= '0') and (C <= '9') then Res := Res + (Ord(C) - 48)
