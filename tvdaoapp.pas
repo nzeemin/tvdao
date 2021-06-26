@@ -30,6 +30,9 @@ const cmAppToolbar      = 1000;
       cmGreedCall       = 1031;
       cmSetOrigin       = 1032;
       cmGotoOrigin      = 1033;
+      cmGotoModuleBegin = 1034;
+      cmGotoModuleStart = 1035;
+      cmGotoModuleEnd   = 1036;
       cmCpuTypeZ80      = 1041;
       cmCpuType8080     = 1042;
       cmCpuType8085     = 1043;
@@ -80,7 +83,7 @@ type
 
 implementation
 
-const VersionStr = 'tvDAO v.0.0';
+const VersionStr = 'tvDAO v.0.01';
 
 procedure ClearMessages;
 begin
@@ -116,7 +119,12 @@ begin
       cmNextPage        : DoNextPage;
       cmPrevByte        : DoPrevByte;
       cmNextByte        : DoNextByte;
+      cmGotoModuleBegin : begin MemPos := PrgBegin; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
+      cmGotoModuleStart : begin MemPos := PrgStart; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
+      cmGotoModuleEnd   : begin MemPos := PrgBegin + PrgLength; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
       cmGotoAddress     : DoGotoAddress;
+      cmSetOrigin       : begin OriginPos := RealPos; RedrawWindow; end;
+      cmGotoOrigin      : begin MemPos := OriginPos; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
       cmMakeData        : DoMakeData;
       cmMakeCode        : DoMakeCode;
       cmMakeWord        : DoMakeWord;
@@ -125,14 +133,12 @@ begin
       cmDeleteLabel     : DoDeleteLabel;
       cmGreedCall       : DoGreedCall;
       cmLxxxxLabel      : DoLxxxxLabel;
+      cmDataBlock       : begin DataBlock := not DataBlock; RedrawWindow; end;
       cmCpuTypeZ80      : begin Z80 := true; RedrawWindow; end;
       cmCpuType8080     : begin Z80 := false; Type8085 := false; RedrawWindow; end;
       cmCpuType8085     : begin Z80 := false; Type8085 := true; RedrawWindow; end;
       cmDumpChar        : begin DumpChar := not DumpChar; RedrawWindow; end;
       cmUndocumCommands : DoUndocumCommands;
-      cmDataBlock       : begin DataBlock := not DataBlock; RedrawWindow; end;
-      cmSetOrigin       : begin OriginPos := RealPos; RedrawWindow; end;
-      cmGotoOrigin      : begin MemPos := OriginPos; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
       cmAbout           : ShowAboutBox;
       cmHelp            : ShowHelpBox;
       else exit;
@@ -186,18 +192,22 @@ begin
       NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext,
       nil))))))))),
     NewSubMenu('~N~avigation', 0, NewMenu(
-      NewItem('Prev Line', 'Up', kbUp, cmPrevLine, hcNoContext,
-      NewItem('Next Line', 'Down', kbDown, cmNextLine, hcNoContext,
-      NewItem('Prev Page', 'PgUp', kbPgUp, cmPrevPage, hcNoContext,
-      NewItem('Next Page', 'PgDn', kbPgDn, cmNextPage, hcNoContext,
-      NewItem('Prev Byte', 'Left', kbLeft, cmPrevByte, hcNoContext,
-      NewItem('Next Byte', 'Right', kbRight, cmNextByte, hcNoContext,
+      NewItem('Prev Disasm Line', 'Up', kbUp, cmPrevLine, hcNoContext,
+      NewItem('Next Disasm Line', 'Down', kbDown, cmNextLine, hcNoContext,
+      NewItem('Prev Disasm Page', 'PgUp', kbPgUp, cmPrevPage, hcNoContext,
+      NewItem('Next Disasm Page', 'PgDn', kbPgDn, cmNextPage, hcNoContext,
+      NewItem('Prev Memory Byte', 'Left', kbLeft, cmPrevByte, hcNoContext,
+      NewItem('Next Memory Byte', 'Right', kbRight, cmNextByte, hcNoContext,
+      NewLine(
+      NewItem('Go to Module ~B~egin', 'Ctrl+B', kbCtrlB, cmGotoModuleBegin, hcNoContext,
+      NewItem('Go to Module ~S~tart', 'Ctrl+S', kbCtrlS, cmGotoModuleStart, hcNoContext,
+      NewItem('Go to Module ~E~nd', 'Ctrl+E', kbCtrlE, cmGotoModuleEnd, hcNoContext,
       NewLine(
       NewItem('~G~o to Address...', 'Ctrl+G', kbCtrlG, cmGotoAddress, hcNoContext,
       NewLine(
       NewItem('Go to ~O~rigin', 'Ctrl+O', kbCtrlO, cmGotoOrigin, hcNoContext,
-      NewItem('Set Origin', 'Ctrl+N', kbCtrlN, cmSetOrigin, hcNoContext,
-      nil)))))))))))),
+      NewItem('Set Origi~n~', 'Ctrl+N', kbCtrlN, cmSetOrigin, hcNoContext,
+      nil)))))))))))))))),
     NewSubMenu('~E~dit', 0, NewMenu(
       NewItem('Global ~L~abel at Cur.Pos.', 'F2', kbF2, cmGlobalLabel, hcNoContext,
       NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
@@ -205,7 +215,7 @@ begin
       NewItem('Define ~C~ode Area...', 'F5', kbF5, cmMakeCode, hcNoContext,
       NewItem('Define ~W~ord Data Area...', 'F6', kbF6, cmMakeWord, hcNoContext,
       NewItem('Define Offset ~T~able...', 'F7', kbF7, cmMakeAddress, hcNoContext,
-      NewItem('~D~elete Label', 'F8', kbF8, cmDeleteLabel, hcNoContext,
+      NewItem('~D~elete Global Label', 'F8', kbF8, cmDeleteLabel, hcNoContext,
       NewItem('Set/Delete Lxxxx Label', 'Ctrl+F2', kbCtrlF2, cmLxxxxLabel, hcNoContext,
       NewItem('Mark/Unmark ~G~reed Call', 'Alt+G', kbAltG, cmGreedCall, hcNoContext,
       NewLine(
@@ -461,8 +471,11 @@ begin
 end;
 
 procedure TTvDao.DoDeleteLabel;
+var L: string;
 begin
   if not LabelExist(RealPos) then exit;
+  L := Labels^[LabelNo];
+  if cmOk <> MessageBox('Deleting label "' + L + '".'#13'Proceed?', nil, mfConfirmation or mfOKCancel) then exit;
   DeleteLabel(RealPos);
   RedrawWindow;
 end;
