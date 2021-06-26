@@ -20,6 +20,7 @@ const
   BIOShigh       : word    = $159;
 
   MaxFol         = 10;
+  LinesCount = 22;  { Number of visible disasm lines, upper limit for LineNo }
 
 type
  LabelType   = string[8];
@@ -65,7 +66,7 @@ var
  CharDec                    : byte;
 
  PageByte                   : word;
- Adds                       : array[1..14] of word;
+ Adds                       : array[1..LinesCount] of word;
 
  ILength                    : byte;
  LabelNo                    : integer;

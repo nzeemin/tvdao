@@ -44,7 +44,7 @@ procedure RedrawWindow;
 
 implementation
 
-const DisasmHeight: integer = 14;
+const DisasmHeight: integer = LinesCount;
 const LeftPartWidth: integer = 74;  { width of left part }
 
 var DaoWindow: PTvDaoWindow = nil;
@@ -87,16 +87,16 @@ begin
   MoveChar(B, #179, GetColor(1), Size.Y - 2);
   WriteLine(0, 0, 1, Size.Y, B);
   MoveChar(B, #196, GetColor(1), Size.X);
-  WriteLine(1, 6, Size.X - 1, 1, B);
+  WriteLine(1, 13, Size.X - 1, 1, B);
 
   MoveStr(B, 'Init Address:', GetColor(1));
   WriteLine(2, 0, 13, 1, B);
-  MoveStr(B, Hex4(PrgStart), GetColor(2));
+  MoveStr(B, Hex4(PrgStart), GetColor(1));
   WriteLine(20, 0, 4, 1, B);
 
   MoveStr(B, 'Current Position:', GetColor(1));
   WriteLine(2, 1, 17, 1, B);
-  MoveStr(B, Hex4(RealPos), GetColor(2));
+  MoveStr(B, Hex4(RealPos), GetColor(1));
   WriteLine(20, 1, 4, 1, B);
   Fmt := IntToStr((RealPos - PrgBegin) div (PrgLength div 100)) + '%';
   MoveStr(B, Fmt, GetColor(1));
@@ -104,13 +104,13 @@ begin
 
   MoveStr(B, 'Origin  Position:', GetColor(1));
   WriteLine(2, 2, 17, 1, B);
-  MoveStr(B, Hex4(OriginPos), GetColor(2));
+  MoveStr(B, Hex4(OriginPos), GetColor(1));
   WriteLine(20, 2, 4, 1, B);
 
   Fmt := AsmFormat;
   MoveStr(B, 'ASM Format:', GetColor(1));
   WriteLine(2, 3, 11, 1, B);
-  MoveStr(B, Fmt, GetColor(2));
+  MoveStr(B, Fmt, GetColor(1));
   WriteLine(20, 3, Length(Fmt), 1, B);
 
   if Length(Message) > 0 then begin
@@ -121,28 +121,28 @@ begin
     WriteLine(1, 5, Length(Fmt), 1, B);
   end;
 
+  MoveStr(B, 'Greed Calls:', GetColor(1));
+  WriteLine(2, 7, 12, 1, B);
+  for I := 1 to 10 do begin
+    MoveStr(B, Hex4(GreedCall[I]), GetColor(1));
+    WriteLine(4 + ((I - 1) mod 5) * 5, 8 + (I - 1) div 5, 4, 1, B);
+  end;
+
+  MoveStr(B, 'Bookmarks:', GetColor(1));
+  WriteLine(2, 10, 10, 1, B);
+  for I := 1 to 10 do begin
+    MoveStr(B, IntToStr(I mod 10) + ':' + Hex4(KeyReg[I]), GetColor(1));
+    WriteLine(4 + ((I - 1) mod 5) * 7, 11 + (I - 1) div 5, 6, 1, B);
+  end;
+
   Fmt := 'Labels: ' + IntToStr(LabelNum);
   MoveStr(B, Fmt, GetColor(1));
-  WriteLine(2, 7, Length(Fmt), 1, B);
+  WriteLine(2, 14, Length(Fmt), 1, B);
   for I := 1 to LabelNum do begin
     Fmt := Labels^[I];
     while Length(Fmt) < 10 do Fmt := Fmt + ' ';
     MoveStr(B, Fmt, GetColor(1));
-    WriteLine(4, 7 + I, Length(Fmt), 1, B);
-  end;
-
-  MoveStr(B, 'Greed Calls:', GetColor(1));
-  WriteLine(19, 7, 12, 1, B);
-  for I := 1 to 10 do begin
-    MoveStr(B, Hex4(GreedCall[I]), GetColor(1));
-    WriteLine(23, 7 + I, 4, 1, B);
-  end;
-
-  MoveStr(B, 'Bookmarks:', GetColor(1));
-  WriteLine(19, 19, 10, 1, B);
-  for I := 1 to 10 do begin
-    MoveStr(B, IntToStr(I mod 10) + ': ' + Hex4(KeyReg[I]), GetColor(1));
-    WriteLine(20, 19 + I, 7, 1, B);
+    WriteLine(4, 14 + I, Length(Fmt), 1, B);
   end;
 end;
 
@@ -154,7 +154,7 @@ begin
   inherited Draw;
 
   IP := MemPos; PageByte := 0;
-  for I := 1 to 14 do begin
+  for I := 1 to LinesCount do begin
     MoveStr(B, Hex4(IP) + ':', GetColor(1));
     WriteLine(1, I - 1, 5, 1, B); { Show address for the line }
 
@@ -187,7 +187,7 @@ begin
     S := Hex4(IP) + ':'; SC := ''; SH := '';
     if DumpChar then begin
       S := S + '  ';
-      for J := 0 to 47 do begin
+      for J := 0 to 64 - 1 do begin
         C := Chr(PrgMem^[IP]);
         S := S + C;
 	if IP = RealPos then begin SH := C; JH := J; end;

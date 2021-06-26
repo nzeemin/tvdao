@@ -417,7 +417,7 @@ end;
 procedure TTvDao.DoNextLine;
 var I: integer;
 begin
-  if LineNo < 14 then Inc(LineNo) else Inc(MemPos, Adds[1]);
+  if LineNo < LinesCount then Inc(LineNo) else Inc(MemPos, Adds[1]);
 
   RealPos := MemPos; for I := 2 to LineNo do Inc(RealPos, Adds[I - 1]); {ShowStatus}
 
@@ -427,7 +427,7 @@ end;
 procedure TTvDao.DoPrevPage;
 var IP: word; I: integer;
 begin
-  for I := 1 to 14 do begin {GoUp}
+  for I := 1 to LinesCount do begin {GoUp}
     IP := MemPos - 22;
     repeat
       DisAsm(ip);
