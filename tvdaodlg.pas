@@ -6,7 +6,7 @@ function EnterAddr(var A: word): boolean;
 
 function EnterRange(var A1, A2: word; Prompt: string): boolean;
 
-function EnterLabel(var L: string): boolean;
+function EnterLabel(var L: string; Prompt: string): boolean;
 
 {---------------------------------------------------------------------------}
 
@@ -45,10 +45,10 @@ type
     A1, A2, A3: word;
   end;
 
-  PTvDaoEnterLabelDialog = ^TTvDaoEnterLabelDialog;
-  TTvDaoEnterLabelDialog = object(TDialog)
+  PEnterLabelDialog = ^TEnterLabelDialog;
+  TEnterLabelDialog = object(TDialog)
     Edit: PInputLine;
-    constructor Init(R: TRect);
+    constructor Init(R: TRect; Prompt: string);
   end;
 
   PLabelValidator = ^TLabelValidator;
@@ -149,18 +149,21 @@ end;
 
 {---------------------------------------------------------------------------}
 
-constructor TTvDaoEnterLabelDialog.Init(R: TRect);
+constructor TEnterLabelDialog.Init(R: TRect; Prompt: string);
 begin
   inherited Init(R, 'Enter Label');
+
+  R.Assign(4, 2, 25, 3);
+  Insert(New(PStaticText, Init(R, Prompt)));
 
   R.Assign(4, 5, 14, 7);
   Insert(New(PButton, Init(R, '~O~K', cmOK, bfDefault)));
   R.Assign(15, 5, 26, 7);
   Insert(new(PButton, Init(R, '~C~ancel', cmCancel, bfNormal)));
-  R.Assign(15, 2, 26, 3);
+  R.Assign(15, 3, 26, 4);
   Edit := New(PInputLine, Init(R, 8));
   Insert(Edit);
-  R.Assign(3, 2, 12, 3);
+  R.Assign(3, 3, 12, 4);
   Insert(New(PLabel, Init(R, '~L~abel:', Edit)));
 
   Edit^.SetValidator(New(PFilterValidator, Init(LabelChars)));
@@ -209,12 +212,12 @@ begin
   EnterRange := Res = cmOK;
 end;
 
-function EnterLabel(var L: string): boolean;
-var D: PTvDaoEnterLabelDialog; R: TRect; Data: string; Res: word;
+function EnterLabel(var L: string; Prompt: string): boolean;
+var D: PEnterLabelDialog; R: TRect; Data: string; Res: word;
 begin
   Desktop^.GetExtent(R);
   R.Assign(60, R.A.X + 1, 60 + 30, R.A.X + 9);
-  D := New(PTvDaoEnterLabelDialog, Init(R));
+  D := New(PEnterLabelDialog, Init(R, Prompt));
   Data := L;
   D^.SetData(Data);
   Res := Desktop^.ExecView(D);

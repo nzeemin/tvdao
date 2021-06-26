@@ -18,7 +18,7 @@ const cmAppToolbar      = 1000;
       cmLoadWork        = 1011;
       cmSaveWork        = 1012;
       cmImportSymbols   = 1014;
-      cmSaveAsmFiles    = 1015;
+      cmSaveAsmFile     = 1015;
       cmPrevLine        = 1023;
       cmNextLine        = 1024;
       cmPrevPage        = 1025;
@@ -33,6 +33,7 @@ const cmAppToolbar      = 1000;
       cmGotoModuleBegin = 1034;
       cmGotoModuleStart = 1035;
       cmGotoModuleEnd   = 1036;
+      cmDumpPosCurPos   = 1037;
       cmCpuTypeZ80      = 1041;
       cmCpuType8080     = 1042;
       cmCpuType8085     = 1043;
@@ -58,6 +59,7 @@ type
       procedure ShowAboutBox;
       procedure DoSaveWorkFile;
       procedure DoLoadWorkFile;
+      procedure DoSaveAsmFile;
       procedure DoPrevLine;
       procedure DoNextLine;
       procedure DoPrevPage;
@@ -113,6 +115,7 @@ begin
     case Event.Command Of
       cmSaveWork        : DoSaveWorkFile;
       cmLoadWork        : DoLoadWorkFile;
+      cmSaveAsmFile     : DoSaveAsmFile;
       cmPrevLine        : DoPrevLine;
       cmNextLine        : DoNextLine;
       cmPrevPage        : DoPrevPage;
@@ -125,6 +128,7 @@ begin
       cmGotoAddress     : DoGotoAddress;
       cmSetOrigin       : begin OriginPos := RealPos; RedrawWindow; end;
       cmGotoOrigin      : begin MemPos := OriginPos; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
+      cmDumpPosCurPos   : begin DumpPos := RealPos; RedrawWindow; end;
       cmMakeData        : DoMakeData;
       cmMakeCode        : DoMakeCode;
       cmMakeWord        : DoMakeWord;
@@ -187,7 +191,7 @@ begin
       NewLine(
       NewItem('~I~mport .SYM .CTL Files', 'Alt+I', kbAltI, cmImportSymbols, hcNoContext,
       NewLine(
-      NewItem('Save ~A~SM Files', 'Ctrl+F9', kbCtrlF9, cmSaveAsmFiles, hcNoContext,
+      NewItem('Save ~A~SM Files', 'Ctrl+F9', kbCtrlF9, cmSaveAsmFile, hcNoContext,
       NewLine(
       NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext,
       nil))))))))),
@@ -204,13 +208,15 @@ begin
       NewItem('Go to Module ~E~nd', 'Ctrl+E', kbCtrlE, cmGotoModuleEnd, hcNoContext,
       NewLine(
       NewItem('~G~o to Address...', 'Ctrl+G', kbCtrlG, cmGotoAddress, hcNoContext,
+      NewItem('Memory to Cur.Pos.', 'Alr+D', kbAltD, cmDumpPosCurPos, hcNoContext,
       NewLine(
       NewItem('Go to ~O~rigin', 'Ctrl+O', kbCtrlO, cmGotoOrigin, hcNoContext,
       NewItem('Set Origi~n~', 'Ctrl+N', kbCtrlN, cmSetOrigin, hcNoContext,
-      nil)))))))))))))))),
+      NewLine(
+      NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
+      nil))))))))))))))))))),
     NewSubMenu('~E~dit', 0, NewMenu(
       NewItem('Global ~L~abel at Cur.Pos.', 'F2', kbF2, cmGlobalLabel, hcNoContext,
-      NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
       NewItem('Define ~B~yte Data Area...', 'F4', kbF4, cmMakeData, hcNoContext,
       NewItem('Define ~C~ode Area...', 'F5', kbF5, cmMakeCode, hcNoContext,
       NewItem('Define ~W~ord Data Area...', 'F6', kbF6, cmMakeWord, hcNoContext,
@@ -221,7 +227,7 @@ begin
       NewLine(
       NewItem('~S~can from Cur.Pos.', 'F9', kbF9, cmScan, hcNoContext,
       NewItem('~S~can from Word at Cur.Pos.', 'Alt+F9', kbAltF9, cmScan, hcNoContext,
-      nil))))))))))))),
+      nil)))))))))))),
     NewSubMenu('~O~ptions', 0, NewMenu(
       NewItem('CPU Type ~Z~80', '', kbNoKey, cmCpuTypeZ80, hcNoContext,
       NewItem('CPU Type i~8~080', '', kbNoKey, cmCpuType8080, hcNoContext,
@@ -229,7 +235,7 @@ begin
       NewItem('~U~ndocumented Commands', 'Alt+U', kbAltU, cmUndocumCommands, hcNoContext,
       NewLine(
       NewItem('Toggle Data Block', 'Alt+B', kbAltB, cmDataBlock, hcNoContext,
-      NewItem('Hex/~C~har Dump', '', kbNoKey, cmDumpChar, hcNoContext,
+      NewItem('Memory as Hex/~C~har', '', kbNoKey, cmDumpChar, hcNoContext,
       nil)))))))),
     // NewSubMenu('~W~indow', 0, NewMenu(
     //   StdWindowMenuItems(Nil)),        { Standard window menu }
@@ -379,6 +385,16 @@ begin
   ErrorMessage := '';
 end;
 
+procedure TTvDao.DoSaveAsmFile;
+begin
+  ShowMessage('Saving ASM file...', $1B);
+  ErrorMessage := '';
+  SaveAsmFile;
+  RedrawWindow;
+  ShowMessage(ErrorMessage, ErrorAttrs);
+  ErrorMessage := '';
+end;
+
 procedure TTvDao.DoPrevLine;
 var IP: word; I: integer;
 begin
@@ -461,11 +477,11 @@ begin
 end;
 
 procedure TTvDao.DoGlobalLabel;
-var L: string;
+var L,Prompt: string;
 begin
-  L := '';
-  if LabelExist(RealPos) then L := Labels^[LabelNo];
-  if not EnterLabel(L) then exit;
+  L := ''; Prompt := 'New global label:';
+  if LabelExist(RealPos) then begin L := Labels^[LabelNo]; Prompt := 'Edit global label:' end;
+  if not EnterLabel(L, Prompt) then exit;
   SetLabelName(RealPos, L);
   RedrawWindow;
 end;

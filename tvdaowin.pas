@@ -93,10 +93,15 @@ begin
   WriteLine(2, 0, 13, 1, B);
   MoveStr(B, Hex4(PrgStart), GetColor(2));
   WriteLine(20, 0, 4, 1, B);
+
   MoveStr(B, 'Current Position:', GetColor(1));
   WriteLine(2, 1, 17, 1, B);
   MoveStr(B, Hex4(RealPos), GetColor(2));
   WriteLine(20, 1, 4, 1, B);
+  Fmt := IntToStr((RealPos - PrgBegin) div (PrgLength div 100)) + '%';
+  MoveStr(B, Fmt, GetColor(1));
+  WriteLine(26, 1, Length(Fmt), 1, B);
+
   MoveStr(B, 'Origin  Position:', GetColor(1));
   WriteLine(2, 2, 17, 1, B);
   MoveStr(B, Hex4(OriginPos), GetColor(2));

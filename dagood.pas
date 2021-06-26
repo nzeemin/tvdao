@@ -82,6 +82,7 @@ function LabelExist(addr: word): boolean; { If label exists, returns True and se
 procedure DAGoodInit;
 procedure SaveEnvir;                { Save .WRK file }
 procedure LoadEnvir;                { Load .WRK file }
+procedure SaveAsmFile;              { Generate the ASM file }
 function DisAsm(addr: word): string; { Disasm using the current CPU options }
 procedure MakeData(w1, w2: word);   { Mark this area as byte data }
 procedure MakeCode(w1, w2: word);   { Mark this area as code }
@@ -1107,7 +1108,7 @@ begin
   WriteTo(s,73,19,$30);
   i:=(ip-PrgBegin) div PrgL; Str(i:3,s);
   WriteTo(s+'%',74,20,$30);
-  if keypressed then
+(*  if keypressed then
     begin
      case ReadKey of
       #0 : case ReadKey of
@@ -1115,7 +1116,7 @@ begin
            end;
       #27 : begin TypeError(53); Goto ProcExit end;
      end;
-    end;
+    end;*)
  until ip>=PrgBegin+PrgLength;
  TypeError(50);
 ProcExit:
