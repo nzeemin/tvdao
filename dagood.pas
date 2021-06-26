@@ -1481,7 +1481,7 @@ begin
 (*         #80 : if LineNo<14 then inc(LineNo) else inc(MemPos, Adds[1]);*)
 (*         #73 : PageUp;
          #81 : Inc(MemPos, PageByte);*)
-{F2}     #60 : begin GetLabelName(ln); if ln<>'' then SetLabelName(RealPos,ln); end;
+(*{F2}     #60 : begin GetLabelName(ln); if ln<>'' then SetLabelName(RealPos,ln); end;*)
 {F3}     #61 : begin
                 GetLabelName(ln); ln:=UpString(ln);
                 While (ln <> '') and (ln[length(ln)] = ' ') do Dec(byte(ln[0]));
@@ -1537,7 +1537,7 @@ begin
                    end;
 (*{Alt +x} #45 : Halt;*)
 (*{Alt +B} #48 : DataBlock:=not DataBlock;*)
-{Alt +1} #120: begin MemPos:=KeyReg[1];  LineNo:=1 end;
+(*{Alt +1} #120: begin MemPos:=KeyReg[1];  LineNo:=1 end;
 {Alt +2} #121: begin MemPos:=KeyReg[2];  LineNo:=1 end;
 {Alt +3} #122: begin MemPos:=KeyReg[3];  LineNo:=1 end;
 {Alt +4} #123: begin MemPos:=KeyReg[4];  LineNo:=1 end;
@@ -1546,7 +1546,7 @@ begin
 {Alt +7} #126: begin MemPos:=KeyReg[7];  LineNo:=1 end;
 {Alt +8} #127: begin MemPos:=KeyReg[8];  LineNo:=1 end;
 {Alt +9} #128: begin MemPos:=KeyReg[9];  LineNo:=1 end;
-{Alt +0} #129: begin MemPos:=KeyReg[10]; LineNo:=1 end;
+{Alt +0} #129: begin MemPos:=KeyReg[10]; LineNo:=1 end;*)
 (* {Alt +Q} #16 : SaveEnvir;
 {Alt +W} #17 : LoadEnvir;*)
 {Alt +C} #46 : begin
@@ -1626,7 +1626,7 @@ begin
 {Ctrl+S} #19 : begin MemPos:=PrgStart;LineNo:=1 end;
 {Ctrl+E} #5  : begin MemPos:=PrgBegin+PrgLength;LineNo:=1 end;
 {Ctrl+Z} #26 : begin Z80:=not Z80; (* WriteFormat;*) end;
-{Shift1} '!' : begin KeyReg[1]:=RealPos; ShowPoints end;
+(*{Shift1} '!' : begin KeyReg[1]:=RealPos; ShowPoints end;
 {Shift2} '@' : begin KeyReg[2]:=RealPos; ShowPoints  end;
 {Shift3} '#' : begin KeyReg[3]:=RealPos; ShowPoints  end;
 {Shift4} '$' : begin KeyReg[4]:=RealPos; ShowPoints  end;
@@ -1635,7 +1635,7 @@ begin
 {Shift7} '&' : begin KeyReg[7]:=RealPos; ShowPoints  end;
 {Shift8} '*' : begin KeyReg[8]:=RealPos; ShowPoints  end;
 {Shift9} '(' : begin KeyReg[9]:=RealPos; ShowPoints  end;
-{Shift0} ')' : begin KeyReg[10]:=RealPos;ShowPoints  end;
+{Shift0} ')' : begin KeyReg[10]:=RealPos;ShowPoints  end;*)
      '=','+' : Inc(CharDec);
          '-' : Dec(CharDec);
 {enter}  #13 : ShowGraphics(RealPos, 0);

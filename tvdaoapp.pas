@@ -70,6 +70,8 @@ type
       procedure DoGlobalLabel;
       procedure DoDeleteLabel;
       procedure DoGreedCall;
+      procedure DoSetBookmark(N: integer; Addr: word);
+      procedure DoGotoBookmark(N: integer);
     private
       Heap: PHeapView;
       procedure DoUndocumCommands;
@@ -101,41 +103,68 @@ end;
 
 procedure TTvDao.HandleEvent(var Event : TEvent);
 begin
-   Inherited HandleEvent(Event);
-   If (Event.What = evCommand) Then Begin
-     ClearMessages;  { Clear any messages shown in the info view, clear DAGood error }
-     Case Event.Command Of
-       cmSaveWork        : DoSaveWorkFile;
-       cmLoadWork        : DoLoadWorkFile;
-       cmPrevLine        : DoPrevLine;
-       cmNextLine        : DoNextLine;
-       cmPrevPage        : DoPrevPage;
-       cmNextPage        : DoNextPage;
-       cmPrevByte        : DoPrevByte;
-       cmNextByte        : DoNextByte;
-       cmGotoAddress     : DoGotoAddress;
-       cmMakeData        : DoMakeData;
-       cmMakeCode        : DoMakeCode;
-       cmMakeWord        : DoMakeWord;
-       cmMakeAddress     : DoMakeAddress;
-       cmGlobalLabel     : DoGlobalLabel;
-       cmDeleteLabel     : DoDeleteLabel;
-       cmGreedCall       : DoGreedCall;
-       cmLxxxxLabel      : DoLxxxxLabel;
-       cmCpuTypeZ80      : begin Z80 := true; RedrawWindow; end;
-       cmCpuType8080     : begin Z80 := false; Type8085 := false; RedrawWindow; end;
-       cmCpuType8085     : begin Z80 := false; Type8085 := true; RedrawWindow; end;
-       cmDumpChar        : begin DumpChar := not DumpChar; RedrawWindow; end;
-       cmUndocumCommands : DoUndocumCommands;
-       cmDataBlock       : begin DataBlock := not DataBlock; RedrawWindow; end;
-       cmSetOrigin       : begin OriginPos := RealPos; RedrawWindow; end;
-       cmGotoOrigin      : begin MemPos := OriginPos; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
-       cmAbout           : ShowAboutBox;
-       cmHelp            : ShowHelpBox;
-       Else Exit;
-     end;
-   end;
-   ClearEvent(Event);
+  inherited HandleEvent(Event);
+
+  if Event.What = evCommand Then Begin
+    ClearMessages;  { Clear any messages shown in the info view, clear DAGood error }
+    case Event.Command Of
+      cmSaveWork        : DoSaveWorkFile;
+      cmLoadWork        : DoLoadWorkFile;
+      cmPrevLine        : DoPrevLine;
+      cmNextLine        : DoNextLine;
+      cmPrevPage        : DoPrevPage;
+      cmNextPage        : DoNextPage;
+      cmPrevByte        : DoPrevByte;
+      cmNextByte        : DoNextByte;
+      cmGotoAddress     : DoGotoAddress;
+      cmMakeData        : DoMakeData;
+      cmMakeCode        : DoMakeCode;
+      cmMakeWord        : DoMakeWord;
+      cmMakeAddress     : DoMakeAddress;
+      cmGlobalLabel     : DoGlobalLabel;
+      cmDeleteLabel     : DoDeleteLabel;
+      cmGreedCall       : DoGreedCall;
+      cmLxxxxLabel      : DoLxxxxLabel;
+      cmCpuTypeZ80      : begin Z80 := true; RedrawWindow; end;
+      cmCpuType8080     : begin Z80 := false; Type8085 := false; RedrawWindow; end;
+      cmCpuType8085     : begin Z80 := false; Type8085 := true; RedrawWindow; end;
+      cmDumpChar        : begin DumpChar := not DumpChar; RedrawWindow; end;
+      cmUndocumCommands : DoUndocumCommands;
+      cmDataBlock       : begin DataBlock := not DataBlock; RedrawWindow; end;
+      cmSetOrigin       : begin OriginPos := RealPos; RedrawWindow; end;
+      cmGotoOrigin      : begin MemPos := OriginPos; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
+      cmAbout           : ShowAboutBox;
+      cmHelp            : ShowHelpBox;
+      else exit;
+    end; {case of}
+  end else if Event.What = evKeyDown then begin
+    case Event.CharCode of
+      {Shift1} '!' : DoSetBookmark(1, RealPos);
+      {Shift2} '@' : DoSetBookmark(2, RealPos);
+      {Shift3} '#' : DoSetBookmark(3, RealPos);
+      {Shift4} '$' : DoSetBookmark(4, RealPos);
+      {Shift5} '%' : DoSetBookmark(5, RealPos);
+      {Shift6} '^' : DoSetBookmark(6, RealPos);
+      {Shift7} '&' : DoSetBookmark(7, RealPos);
+      {Shift8} '*' : DoSetBookmark(8, RealPos);
+      {Shift9} '(' : DoSetBookmark(9, RealPos);
+      {Shift0} ')' : DoSetBookmark(10, RealPos);
+      else
+        case Event.KeyCode of
+          kbAlt1 : DoGotoBookmark(1);
+          kbAlt2 : DoGotoBookmark(2);
+          kbAlt3 : DoGotoBookmark(3);
+          kbAlt4 : DoGotoBookmark(4);
+          kbAlt5 : DoGotoBookmark(5);
+          kbAlt6 : DoGotoBookmark(6);
+          kbAlt7 : DoGotoBookmark(7);
+          kbAlt8 : DoGotoBookmark(8);
+          kbAlt9 : DoGotoBookmark(9);
+          kbAlt0 : DoGotoBookmark(10);
+        end;
+    end;
+  end;
+  ClearEvent(Event);
 end;
 
 procedure TTvDao.InitMenuBar;
@@ -487,6 +516,19 @@ begin
     RedrawWindow;
     if UndoCode then ShowMessage('Using undocument code ON', $1B) else ShowMessage('Using undocument code OFF', $1B);
   end;
+end;
+
+procedure TTvDao.DoSetBookmark(N: integer; Addr: word);
+begin
+  KeyReg[N] := Addr;
+  RedrawWindow;
+end;
+
+procedure TTvDao.DoGotoBookmark(N: integer);
+begin
+  MemPos := KeyReg[N]; LineNo := 1;
+  RealPos := MemPos; {ShowStatus}
+  RedrawWindow;
 end;
 
 end.
