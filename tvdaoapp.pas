@@ -3,12 +3,13 @@ unit tvdaoapp;
 interface
 
 uses  tvdaowin, tvdaodlg, dagood,
+      SysUtils,
       Objects, Drivers, Views, Editors, Menus, Dialogs, App, FVConsts, Gadgets, MsgBox, ColorTxt;
 
 const cmAppToolbar      = 1000;
       cmHelp            = 1001;
       cmGlobalLabel     = 1002;
-      cmReloc           = 1003;
+      cmFindGlobalLabel = 1003;
       cmMakeData        = 1004;
       cmMakeCode        = 1005;
       cmMakeWord        = 1006;
@@ -55,7 +56,7 @@ type
       procedure InitStatusLine; virtual;
       procedure CreateWindow;
       procedure CloseWindow(var P: PGroup);
-      procedure ShowHelpBox;
+      //procedure ShowHelpBox;
       procedure ShowAboutBox;
       procedure DoSaveWorkFile;
       procedure DoLoadWorkFile;
@@ -77,6 +78,7 @@ type
       procedure DoGreedCall;
       procedure DoSetBookmark(N: integer; Addr: word);
       procedure DoGotoBookmark(N: integer);
+      procedure DoFindGlobalLabel;
     private
       Heap: PHeapView;
       procedure DoUndocumCommands;
@@ -129,6 +131,7 @@ begin
       cmSetOrigin       : begin OriginPos := RealPos; RedrawWindow; end;
       cmGotoOrigin      : begin MemPos := OriginPos; LineNo := 1; RealPos := MemPos; RedrawWindow; end;
       cmDumpPosCurPos   : begin DumpPos := RealPos; RedrawWindow; end;
+      cmFindGlobalLabel : DoFindGlobalLabel;
       cmMakeData        : DoMakeData;
       cmMakeCode        : DoMakeCode;
       cmMakeWord        : DoMakeWord;
@@ -144,7 +147,7 @@ begin
       cmDumpChar        : begin DumpChar := not DumpChar; RedrawWindow; end;
       cmUndocumCommands : DoUndocumCommands;
       cmAbout           : ShowAboutBox;
-      cmHelp            : ShowHelpBox;
+      //cmHelp            : ShowHelpBox;
       else exit;
     end; {case of}
   end else if Event.What = evKeyDown then begin
@@ -213,7 +216,7 @@ begin
       NewItem('Go to ~O~rigin', 'Ctrl+O', kbCtrlO, cmGotoOrigin, hcNoContext,
       NewItem('Set Origi~n~', 'Ctrl+N', kbCtrlN, cmSetOrigin, hcNoContext,
       NewLine(
-      NewItem('~F~ind Global Label', 'F3', kbF3, cmReloc, hcNoContext,
+      NewItem('~F~ind Global Label', 'F3', kbF3, cmFindGlobalLabel, hcNoContext,
       nil))))))))))))))))))),
     NewSubMenu('~E~dit', 0, NewMenu(
       NewItem('Global ~L~abel at Cur.Pos.', 'F2', kbF2, cmGlobalLabel, hcNoContext,
@@ -241,8 +244,8 @@ begin
     //   StdWindowMenuItems(Nil)),        { Standard window menu }
     NewSubMenu('~H~elp', hcNoContext, NewMenu(
       NewItem('~A~bout','', kbNoKey, cmAbout, hcNoContext,
-      NewItem('~K~eyboard Quick Help', 'F1', kbF1, cmHelp, hcNoContext,
-      nil))),
+      //NewItem('~K~eyboard Quick Help', 'F1', kbF1, cmHelp, hcNoContext,
+      nil)),
     nil))))) //end NewSubMenus
   ))); //end MenuBar
 
@@ -274,7 +277,7 @@ begin
       NewStatusDef(0, $EFFF,
         NewStatusKey('~F1~ Help', kbF1, cmHelp,
         NewStatusKey('~F2~ Label', kbF2, cmGlobalLabel,
-        NewStatusKey('~F3~ Reloc', kbF3, cmReloc,
+        NewStatusKey('~F3~ Reloc', kbF3, cmFindGlobalLabel,
         NewStatusKey('~F4~ Data', kbF4, cmMakeData,
         NewStatusKey('~F5~ Code', kbF5, cmMakeCode,
         NewStatusKey('~F6~ Word', kbF6, cmMakeWord,
@@ -302,58 +305,25 @@ BEGIN
   Desktop^.Insert(P1);
 END;
 
-PROCEDURE TTvDao.ShowHelpBox;
-var PD: PDialog; Rect: TRect;
-begin
-  Rect.Assign(0, 0, 72, 26);
-  PD := New(PDialog, Init(Rect, 'Keyboard Quick Help'));
-  with PD^ do begin
-    Options := Options or ofCentered;
-    Rect.Assign(2, 2, 70, 6);
-    Insert(New(PStaticText, Init(Rect,
-      'F2 Global label at c.p.           | F6 Define data area (word)' + #13 +
-      'F3 Find global label              | F7 Define offset table' + #13 +
-      'F4 Define data area (byte)        | F8 Delete label (!)'#13 +
-      'F5 Define code area               | F9 Scan from cursor position')));
-    Rect.Assign(2, 6, 70, 10);
-    Insert(New(PStaticText, Init(Rect,
-      'Alt+F2 Toggle offset/word         | Ctrl+F2 Set/Delete Lxxx label'#13 +
-      'Alt+F9 Scan from WORD at c.p.     | Ctrl+F9 Save ASM files'#13 +
-      'Shft+F2 Make offset, tiny label   | Shft+0..9,0 set mark #1..#10'#13 +
-      'Ctrl+B Begin of module            | Alt+1..9,0 Goto mark #1..#10')));
-    Rect.Assign(2, 10, 70, 14);
-    Insert(New(PStaticText, Init(Rect,
-      'Ctrl+S Start of module            | Ctrl+R Find reference'#13 +
-      'Ctrl+E End of module              | Ctrl+X Find bytes (X - unknown)'#13 +
-      'Alt+C Toggle comment Z80 code     | Ctrl+L Find next occurence'#13 +
-      'Alt+B Toggle data block           | Ctrl+Z Change asm format')));
-    Rect.Assign(2, 14, 70, 18);
-    Insert(New(PStaticText, Init(Rect,
-      'Alt+G Define "greed" call         | Ctrl+D Find next data from c.p.'#13 +
-      'Alt+Q Save .WRK file              | Ctrl+C Hex/char dump, "+"/"-"'#13 +
-      'Alt+W Load .WRK file              | Ctrl+A Find next address ref.'#13 +
-      'Alt+S Move to data/code segment   | Ctrl+G Goto address, "+"/"-"')));
-    Rect.Assign(2, 18, 70, 22);
-    Insert(New(PStaticText, Init(Rect,
-      'Alt+I Import .SYM, .CTL files     | Ctrl+O Goto origin'#13 +
-      'Alt+D Dump offset to c.p.         | Ctrl+N Set origin'#13 +
-      'Alt+X Quit the program            | Ctrl+F Follow operator'#13 +
-      'Alt+R Toggle real data pos.       | Ctrl+T Find next label ref.')));
-    Rect.Assign(2, 22, 70, 24);
-    Insert(New(PStaticText, Init(Rect,
-      'Alt+T Toggle CPU type i8080/i8085 | Ctrl+P Previous operator'#13 +
-      'Alt+U Toggle undocument commands  | Enter  Unpack graphics at c.p.')));
-  end;
-  Desktop^.ExecView(PD);
-  Dispose(PD, Done);
-end;
-
 PROCEDURE TTvDao.ShowAboutBox;
+var D: PDialog; R: TRect;
 begin
-  MessageBox(#3'tvDAO v.0.0'#13 +
-    #3'Compiled at ' + {$I %DATE%} + #13 +
-    #3'with FPC ' + {$I %FPCVERSION%},
-    nil, mfInformation or mfOKButton);
+  Desktop^.GetExtent(R);
+  R.Assign(R.B.X div 2 - 26, R.A.X + 3, R.B.X div 2 + 26, R.A.X + 17);
+  New(D, Init(R, 'About'));
+  R.Assign(4, 2, 44, 3);
+  D^.Insert(New(PStaticText, Init(R, 'tvDAO v.0.01')));
+  R.Move(0, 2);
+  D^.Insert(New(PStaticText, Init(R, 'Compiled at ' + {$I %DATE%} + ' with FPC ' + {$I %FPCVERSION%})));
+  R.Move(0, 2);
+  D^.Insert(New(PStaticText, Init(R, 'Based on MSX2PC by Val Bostan')));
+  R.Move(0, 1);
+  D^.Insert(New(PStaticText, Init(R, 'Rebuilt for i8080/i8085 by Tim0xA')));
+  R.Move(0, 1);
+  D^.Insert(New(PStaticText, Init(R, 'Adopted for FPC/FV by nzeemin')));
+  R.Assign(37, 11, 48, 13);
+  D^.Insert(New(PButton, Init(R, '~O~K', cmOK, bfDefault)));
+  Desktop^.ExecView(D);
 end;
 
 PROCEDURE TTvDao.CloseWindow(var P : PGroup);
@@ -558,6 +528,27 @@ begin
   MemPos := KeyReg[N]; LineNo := 1;
   RealPos := MemPos; {ShowStatus}
   RedrawWindow;
+end;
+
+procedure TTvDao.DoFindGlobalLabel;
+var LF,L: string; IP: word;
+begin
+  LF := '';
+  if not EnterLabel(LF, 'Global label to find:') then exit;
+  LF := UpperCase(LF);
+  for IP := PrgBegin to PrgBegin + PrgLength do begin
+    if LabelExist(IP) then begin
+      L := LeftStr(UpperCase(Labels^[LabelNo]), Length(LF));
+      if LF = L then begin { Found }
+        MemPos := IP; LineNo := 1;
+        RealPos := MemPos; {ShowStatus}
+        RedrawWindow;
+        Exit;
+      end;
+    end;
+  end;
+  { Not found }
+  ShowMessage('Label not found!', $1C);
 end;
 
 end.

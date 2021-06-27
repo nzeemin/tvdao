@@ -1462,9 +1462,6 @@ end;
 
 {======================================================================}
 
-var ln:string;
-    i:word;
-
 procedure StartUp;
 begin
 {NOTE: Initialization moved to DAGoodInit}
@@ -1484,7 +1481,7 @@ begin
 (*         #73 : PageUp;
          #81 : Inc(MemPos, PageByte);*)
 (*{F2}     #60 : begin GetLabelName(ln); if ln<>'' then SetLabelName(RealPos,ln); end;*)
-{F3}     #61 : begin
+(*{F3}     #61 : begin
                 GetLabelName(ln); ln:=UpString(ln);
                 While (ln <> '') and (ln[length(ln)] = ' ') do Dec(byte(ln[0]));
                 if ln<>'' then
@@ -1495,7 +1492,7 @@ begin
                               break;
                              end;
                 if i=PrgBegin+PrgLength then TypeError(29);
-               end;
+               end;*)
 (*{F4}     #62 : MakeData;*)
 (*{F5}     #63 : MakeCode;*)
 (*{F6}     #64 : MakeWord;*)
@@ -1521,7 +1518,7 @@ begin
                   then Scan(sadr);
                 ShadowH^[RealPos]:=ShadowH^[RealPos] or $20;
                end;
-{Ctrl+F9}#102: SaveASMfile;
+(*{Ctrl+F9}#102: SaveASMfile;*)
 (*{Ctrl+F2}#95 : ShadowH^[RealPos]:=ShadowH^[RealPos] xor $10;*)
 {Alt +F2}#105: if ShadowH^[RealPos] shr 6=0 then
                   ShadowH^[RealPos+1]:=(ShadowH^[RealPos+1] xor $80) or $40 else
@@ -1571,7 +1568,7 @@ begin
                end;*)
 {Alt +S} #31 : ShadowH^[RealPos]:=ShadowH^[RealPos] xor $20;
 {Alt +I} #23 : ImportSymbols;
-{Alt +D} #32 : DumpPos:=RealPos;
+(*{Alt +D} #32 : DumpPos:=RealPos;*)
 (*{Alt +G} #34 : MarkGreedCall(RealPos);*)
         end; {case of}
 {อออออออออ end of doublecoded chars อออออออออ}
@@ -1624,9 +1621,9 @@ begin
                end;
 {Ctrl+X} #24 : FindBytes;
 {Ctrl+L} #12 : begin Inc(FindPos);ContinueSearch; end;
-{Ctrl+B} #2  : begin MemPos:=PrgBegin;LineNo:=1 end;
-{Ctrl+S} #19 : begin MemPos:=PrgStart;LineNo:=1 end;
-{Ctrl+E} #5  : begin MemPos:=PrgBegin+PrgLength;LineNo:=1 end;
+(*{Ctrl+B} #2  : begin MemPos:=PrgBegin;LineNo:=1 end;*)
+(*{Ctrl+S} #19 : begin MemPos:=PrgStart;LineNo:=1 end;*)
+(*{Ctrl+E} #5  : begin MemPos:=PrgBegin+PrgLength;LineNo:=1 end;*)
 {Ctrl+Z} #26 : begin Z80:=not Z80; (* WriteFormat;*) end;
 (*{Shift1} '!' : begin KeyReg[1]:=RealPos; ShowPoints end;
 {Shift2} '@' : begin KeyReg[2]:=RealPos; ShowPoints  end;

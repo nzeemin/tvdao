@@ -4,7 +4,7 @@ interface
 
 uses  DAGood,
       SysUtils,
-      Objects, Gadgets, Views, ColorTxt, Drivers;
+      Objects, Gadgets, Views, Drivers;
 
 type
   PTvDaoInfoView = ^TTvDaoInfoView;
@@ -14,6 +14,11 @@ type
   private
     Message: string;
     MessageAttrs: byte;
+  end;
+
+  PTvDaoLabelsView = ^TTvDaoLabelsView;
+  TTvDaoLabelsView = object(TView)
+    procedure Draw; virtual;
   end;
 
   PTvDaoDisasmView = ^TTvDaoDisasmView;
@@ -32,6 +37,7 @@ type
   private
     WD: PTvDaoDisasmView;
     WI: PTvDaoInfoView;
+    WL: PTvDaoLabelsView;
     WM: PTvDaoMemoryView;
     TH, BH: integer;  { Heights of top and bottom parts }
   end;
@@ -46,6 +52,7 @@ implementation
 
 const DisasmHeight: integer = LinesCount;
 const LeftPartWidth: integer = 74;  { width of left part }
+const InfoHeight: integer = 13;
 
 var DaoWindow: PTvDaoWindow = nil;
     InfoView: PTvDaoInfoView = nil;
@@ -134,15 +141,28 @@ begin
     MoveStr(B, IntToStr(I mod 10) + ':' + Hex4(KeyReg[I]), GetColor(1));
     WriteLine(4 + ((I - 1) mod 5) * 7, 11 + (I - 1) div 5, 6, 1, B);
   end;
+end;
+
+{---------------------------------------------------------------------------}
+
+procedure TTvDaoLabelsView.Draw;
+var B: TDrawBuffer; Fmt: string; I:integer;
+begin
+  inherited Draw;
+
+  MoveChar(B, #196, GetColor(1), Size.X);
+  WriteLine(0, 0, Size.X, 1, B);
+  MoveChar(B, #179, GetColor(1), Size.Y - 2);
+  WriteLine(0, 0, 1, Size.Y, B);
 
   Fmt := 'Labels: ' + IntToStr(LabelNum);
   MoveStr(B, Fmt, GetColor(1));
-  WriteLine(2, 14, Length(Fmt), 1, B);
+  WriteLine(2, 1, Length(Fmt), 1, B);
   for I := 1 to LabelNum do begin
     Fmt := Labels^[I];
     while Length(Fmt) < 10 do Fmt := Fmt + ' ';
     MoveStr(B, Fmt, GetColor(1));
-    WriteLine(4, 14 + I, Length(Fmt), 1, B);
+    WriteLine(4 + ((I - 1) div (Size.Y - 2)) * 12, 2 + (I - 1) mod (Size.Y - 2), Length(Fmt), 1, B);
   end;
 end;
 
@@ -237,9 +257,15 @@ begin
   WD := New(PTvDaoDisasmView, Init(R));
   Insert(WD);
 
-  R.Assign(RC.A.X + LeftPartWidth + 1, RC.A.Y + 1, RC.B.X - 1, RC.B.Y - 1);
+  { Right top part, info view }
+  R.Assign(RC.A.X + LeftPartWidth + 1, RC.A.Y + 1, RC.B.X - 1, RC.A.Y + 1 + InfoHeight);
   WI := New(PTvDaoInfoView, Init(R));
   Insert(WI);
+
+  { Right bottom part, labels view }
+  R.Assign(RC.A.X + LeftPartWidth + 1, RC.A.Y + 1 + InfoHeight, RC.B.X - 1, RC.B.Y - 1);
+  WL := New(PTvDaoLabelsView, Init(R));
+  Insert(WL);
 
   { Left bottom part, memory view }
   R.Assign(RC.A.X + LeftPartWidth, RC.B.Y - 1 - BH, RC.A.X + 1 + LeftPartWidth, RC.B.Y - 1);
