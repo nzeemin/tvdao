@@ -1,7 +1,6 @@
 unit tvdaowin;
 
 interface
-
 uses  DAGood,
       SysUtils,
       Objects, Gadgets, Views, Drivers;

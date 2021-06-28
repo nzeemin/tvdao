@@ -78,13 +78,13 @@ function Hex2(b:byte):string;
 function Hex4(w:word):string;
 
 function AsmFormat: string;         { Get string describing current CPU options }
+function DisAsm(addr: word): string; { Disasm using the current CPU options }
 function LabelExist(addr: word): boolean; { If label exists, returns True and set LabelNo }
 
 procedure DAGoodInit;
 procedure SaveEnvir;                { Save .WRK file }
 procedure LoadEnvir;                { Load .WRK file }
 procedure SaveAsmFile;              { Generate the ASM file }
-function DisAsm(addr: word): string; { Disasm using the current CPU options }
 procedure MakeData(w1, w2: word);   { Mark this area as byte data }
 procedure MakeCode(w1, w2: word);   { Mark this area as code }
 procedure MakeWord(w1, w2: word);   { Mark this area as word data }
@@ -92,7 +92,8 @@ procedure MakeAddress(w1, w2: word);
 procedure SetLabelName(ad:word; s:string);
 procedure DeleteLabel(ad: word);
 procedure MarkGreedCall(addr: word); { Mark/unmark Greed Call }
-
+procedure ImportSymbols;
+procedure ImportControl;
 
 implementation
 
@@ -134,7 +135,6 @@ var
  push3                      : byte;
  push4                      : byte;
  f                          : file;
- t                          : text;
  a                          : char;
 
 function ReadKey: char; {STUB for Crt}
@@ -884,6 +884,8 @@ begin
   53 : SetError('ASM file saving aborted.', $4B);
   58 : SetError('SYM file loaded.', $1B);
   59 : SetError('CTL file loaded.', $1B);
+  60 : SetError('Can''t open SYM file.', $1B);
+  61 : SetError('Can''t open CTL file.', $1B);
   100: SetError('Real Data Offsets OFF', $1B);
   101: SetError('Real Data Offsets ON', $1B);
   102: SetError('Type processor i8085 OFF', $1B);
@@ -1083,7 +1085,7 @@ end;
 
 procedure SaveAsmFile;
 label ProcExit;
-var ip, LNo, prgl:word;s:string;i:integer;
+var t:text; ip,LNo,prgl:word;s:string;i:integer;
 begin
  Assign(t,FileName+'ASM'); ReWrite(t);
  if IOresult>0 then begin TypeError(10);Exit end;
@@ -1160,21 +1162,24 @@ begin
 end;
 
 procedure ImportSymbols;
-label CTL, DOC, Exit;
-var t:text;s:string;w,ad:word;ch:char;c:byte;
+var t:text;s:string;ad:word;c:byte;
 begin
  Assign(t, FileName+'SYM'); {Label names}
- ReSet(t); if IOResult>0 then Goto CTL;
+ ReSet(t); if IOResult>0 then begin TypeError(60); exit; end;
  repeat
   ReadLn(t, s);
   if CutString(ad, s) then SetLabelName(ad, s);
-  WriteTo('Label '+Copy(s,1,8)+' at '+Hex4(ad)+'    ',51,13,$30);
+  (*WriteTo('Label '+Copy(s,1,8)+' at '+Hex4(ad)+'    ',51,13,$30);*)
  until (s[1]=#26) or Eof(t);
  Close(t);
  TypeError(58);
-CTL:
+end;
+
+procedure ImportControl;
+var t:text;s:string;w,ad:word;ch:char;c:byte;
+begin
  Assign(t, FileName+'CTL'); {Data type ranges}
- ReSet(t); if IOResult>0 then Goto DOC;
+ ReSet(t); if IOResult>0 then begin TypeError(61); exit; end;
  repeat
   ReadLn(t, s);
   if CutString(ad, s) then
@@ -1186,24 +1191,13 @@ CTL:
       'I':c:=0;
       else c:=0;
      end;
-     WriteTo('  Area type '+s[1]+' at '+Hex4(ad)+'    ',51,13,$30);
+     (*WriteTo('  Area type '+s[1]+' at '+Hex4(ad)+'    ',51,13,$30);*)
      for w:=ad to PrgBegin+PrgLength do
       ShadowH^[w]:=(ShadowH^[w] and $3F) or c;
     end;
  until (s[1]=#26) or Eof(t);
  Close(t);
  TypeError(59);
-DOC:
- Assign(t, FileName+'DOC');    {Comments}
- ReSet(t); if IOResult>0 then Goto Exit;
- Close(t);
-Exit:
- WriteTo(Strng(28,' '),51,13,$30);
-end;
-
-procedure GetLabelName(var ln:string);
-begin
-{TODO: remove}
 end;
 
 procedure InitAllVars;

@@ -4,7 +4,7 @@ interface
 
 uses  tvdaowin, tvdaodlg, dagood,
       SysUtils,
-      Objects, Drivers, Views, Editors, Menus, Dialogs, App, FVConsts, Gadgets, MsgBox, ColorTxt;
+      Objects, Drivers, Views, Editors, Menus, Dialogs, App, FVConsts, Gadgets, MsgBox, ColorTxt, StdDlg;
 
 const cmAppToolbar      = 1000;
       cmHelp            = 1001;
@@ -19,7 +19,8 @@ const cmAppToolbar      = 1000;
       cmLoadWork        = 1011;
       cmSaveWork        = 1012;
       cmImportSymbols   = 1014;
-      cmSaveAsmFile     = 1015;
+      cmImportControl   = 1015;
+      cmSaveAsmFile     = 1016;
       cmPrevLine        = 1023;
       cmNextLine        = 1024;
       cmPrevPage        = 1025;
@@ -42,8 +43,6 @@ const cmAppToolbar      = 1000;
       cmDumpChar        = 1045;
       cmDataBlock       = 1046;
 
-{---------------------------------------------------------------------------}
-
 type
    PTvDao = ^TTvDao;
    TTvDao = OBJECT (TApplication)
@@ -60,6 +59,8 @@ type
       procedure ShowAboutBox;
       procedure DoSaveWorkFile;
       procedure DoLoadWorkFile;
+      procedure DoImportSymbols;
+      procedure DoImportControl;
       procedure DoSaveAsmFile;
       procedure DoPrevLine;
       procedure DoNextLine;
@@ -79,15 +80,24 @@ type
       procedure DoSetBookmark(N: integer; Addr: word);
       procedure DoGotoBookmark(N: integer);
       procedure DoFindGlobalLabel;
+      procedure DoScan;
     private
       Heap: PHeapView;
       procedure DoUndocumCommands;
     End;
 
+{---------------------------------------------------------------------------}
 
 implementation
 
 const VersionStr = 'tvDAO v.0.01';
+
+type
+    PScanDialog = ^TScanDialog;
+    TScanDialog = object(TDialog)
+    end;
+
+{---------------------------------------------------------------------------}
 
 procedure ClearMessages;
 begin
@@ -118,6 +128,8 @@ begin
       cmSaveWork        : DoSaveWorkFile;
       cmLoadWork        : DoLoadWorkFile;
       cmSaveAsmFile     : DoSaveAsmFile;
+      cmImportSymbols   : DoImportSymbols;
+      cmImportControl   : DoImportControl;
       cmPrevLine        : DoPrevLine;
       cmNextLine        : DoNextLine;
       cmPrevPage        : DoPrevPage;
@@ -141,6 +153,7 @@ begin
       cmGreedCall       : DoGreedCall;
       cmLxxxxLabel      : DoLxxxxLabel;
       cmDataBlock       : begin DataBlock := not DataBlock; RedrawWindow; end;
+      cmScan            : DoScan;
       cmCpuTypeZ80      : begin Z80 := true; RedrawWindow; end;
       cmCpuType8080     : begin Z80 := false; Type8085 := false; RedrawWindow; end;
       cmCpuType8085     : begin Z80 := false; Type8085 := true; RedrawWindow; end;
@@ -192,12 +205,13 @@ begin
       NewItem('~L~oad WRK file', 'Alt+W', kbAltW, cmLoadWork, hcNoContext,
       NewItem('~S~ave WRK file', 'Alt+Q', kbAltQ, cmSaveWork, hcNoContext,
       NewLine(
-      NewItem('~I~mport .SYM .CTL Files', 'Alt+I', kbAltI, cmImportSymbols, hcNoContext,
+      NewItem('~I~mport SYM File', '', kbNoKey, cmImportSymbols, hcNoContext,
+      NewItem('~I~mport CTL File', '', kbNoKey, cmImportControl, hcNoContext,
       NewLine(
       NewItem('Save ~A~SM Files', 'Ctrl+F9', kbCtrlF9, cmSaveAsmFile, hcNoContext,
       NewLine(
       NewItem('E~x~it', 'Alt-X', kbAltX, cmQuit, hcNoContext,
-      nil))))))))),
+      nil)))))))))),
     NewSubMenu('~N~avigation', 0, NewMenu(
       NewItem('Prev Disasm Line', 'Up', kbUp, cmPrevLine, hcNoContext,
       NewItem('Next Disasm Line', 'Down', kbDown, cmNextLine, hcNoContext,
@@ -309,19 +323,25 @@ PROCEDURE TTvDao.ShowAboutBox;
 var D: PDialog; R: TRect;
 begin
   Desktop^.GetExtent(R);
-  R.Assign(R.B.X div 2 - 26, R.A.X + 3, R.B.X div 2 + 26, R.A.X + 17);
+  R.Assign(R.B.X div 2 - 26, R.A.X + 3, R.B.X div 2 + 26, R.A.X + 20);
   New(D, Init(R, 'About'));
   R.Assign(4, 2, 44, 3);
-  D^.Insert(New(PStaticText, Init(R, 'tvDAO v.0.01')));
+  D^.Insert(New(PStaticText, Init(R, VersionStr)));
   R.Move(0, 2);
   D^.Insert(New(PStaticText, Init(R, 'Compiled at ' + {$I %DATE%} + ' with FPC ' + {$I %FPCVERSION%})));
+  R.Move(0, 1);
+  D^.Insert(New(PStaticText, Init(R, 'Terget: ' + {$I %FPCTARGET%})));
   R.Move(0, 2);
   D^.Insert(New(PStaticText, Init(R, 'Based on MSX2PC by Val Bostan')));
   R.Move(0, 1);
   D^.Insert(New(PStaticText, Init(R, 'Rebuilt for i8080/i8085 by Tim0xA')));
   R.Move(0, 1);
+  D^.Insert(New(PStaticText, Init(R, 'with changes by ivagor')));
+  R.Move(0, 1);
   D^.Insert(New(PStaticText, Init(R, 'Adopted for FPC/FV by nzeemin')));
-  R.Assign(37, 11, 48, 13);
+  R.Move(0, 2);
+  D^.Insert(New(PStaticText, Init(R, 'https://github.com/nzeemin/tvdao')));
+  R.Assign(37, 14, 48, 16);
   D^.Insert(New(PButton, Init(R, '~O~K', cmOK, bfDefault)));
   Desktop^.ExecView(D);
 end;
@@ -350,6 +370,26 @@ begin
   ShowMessage('Loading WorkFile...', $1B);
   ErrorMessage := '';
   LoadEnvir;
+  RedrawWindow;
+  ShowMessage(ErrorMessage, ErrorAttrs);
+  ErrorMessage := '';
+end;
+
+procedure TTvDao.DoImportSymbols;
+begin
+  ShowMessage('Import SYM file...', $1B);
+  ErrorMessage := '';
+  ImportSymbols;
+  RedrawWindow;
+  ShowMessage(ErrorMessage, ErrorAttrs);
+  ErrorMessage := '';
+end;
+
+procedure TTvDao.DoImportControl;
+begin
+  ShowMessage('Import CTL file...', $1B);
+  ErrorMessage := '';
+  ImportControl;
   RedrawWindow;
   ShowMessage(ErrorMessage, ErrorAttrs);
   ErrorMessage := '';
@@ -549,6 +589,23 @@ begin
   end;
   { Not found }
   ShowMessage('Label not found!', $1C);
+end;
+
+procedure TTvDao.DoScan;
+var D: PScanDialog; R: TRect;
+begin
+  NotImplemented;
+(*  Desktop^.GetExtent(R);
+  R.Assign(R.B.X div 2 - 36, R.A.X + 6, R.B.X div 2 + 36, R.A.X + 24);
+  New(D, Init(R, 'Scan'));
+  R.Assign(4, 11, 54, 12);
+  D^.Insert(New(PStaticText, Init(R, 'Call beyond program area at XXXX.')));
+  R.Assign(40, 14, 52, 16);
+  D^.Insert(new(PButton, Init(R, '~I~gnore', cmCancel, bfNormal)));
+  R.Move(14, 0);
+  D^.Insert(new(PButton, Init(R, '~A~bort', cmCancel, bfNormal)));
+  {TODO}
+  Desktop^.ExecView(D);*)
 end;
 
 end.

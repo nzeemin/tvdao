@@ -8,12 +8,14 @@ function EnterRange(var A1, A2: word; Prompt: string): boolean;
 
 function EnterLabel(var L: string; Prompt: string): boolean;
 
+procedure NotImplemented;
+
 {---------------------------------------------------------------------------}
 
 implementation
 
-uses Objects, Dialogs, App, FVConsts, Views, Drivers, Validate,
-     DAGood { Hex4 };
+uses Objects, Dialogs, App, FVConsts, Views, Drivers, Validate, MsgBox,
+     DAGood;
 
 const
     HexNumberChars: set of char = ['0'..'9','A'..'F','a'..'f'];
@@ -225,6 +227,11 @@ begin
   Dispose(D, Done);
   L := Data;
   EnterLabel := Res = cmOK;
+end;
+
+procedure NotImplemented;
+begin
+  MessageBox(#3'This function is not '#13#3'implemented yet. Sorry :(', nil, mfOKButton);
 end;
 
 end.
